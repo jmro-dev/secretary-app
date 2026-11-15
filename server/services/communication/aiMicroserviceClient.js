@@ -124,15 +124,72 @@ async function processInboundMessage({ sender: _sender, message, patientId, phon
             clinicContext
         };
 
-        const res = await axios.post(`${AI_SERVICE_URL}/api/v1/patient-message`, payload, {
+        let res = await axios.post(`${AI_SERVICE_URL}/api/v1/patient-message`, payload, {
             timeout: 15000,
             headers: { 'Content-Type': 'application/json' }
         });
 
-        const aiResult = res.data;
+        let aiResult = res.data;
         if (!aiResult) return null;
 
         console.log(`[AI Microservice] Intent: ${aiResult.intent} | Action: ${aiResult.actionRequired} | Conf: ${aiResult.confidence}`);
+
+        // Orquestación en Backend: Si la IA solicita ejecutar una tool dinámica
+        if (aiResult.actionRequired === 'CALL_TOOL' && aiResult.toolCall) {
+            const { tool, params } = aiResult.toolCall;
+            console.log(`[AI Microservice Orchestrator] Executing tool: ${tool} with params:`, params);
+
+            let toolData = null;
+            const targetDoctorName = params?.doctorName ? params.doctorName.toLowerCase() : '';
+            const allDoctors = clinicContext.doctors || [];
+            const matchedDoc = allDoctors.find(d => targetDoctorName && d.name.toLowerCase().includes(targetDoctorName)) || allDoctors[0];
+
+            if (tool === 'getDoctorSchedule' && matchedDoc) {
+                const rawSchedules = await scheduleRepository.findByDoctor(matchedDoc.id);
+                toolData = {
+                    doctorId: matchedDoc.id,
+                    doctorName: matchedDoc.name,
+                    specialty: matchedDoc.specialty,
+                    schedules: Array.isArray(rawSchedules) ? rawSchedules.filter(s => !s.is_break).map(s => ({
+                        day: DAY_NAMES[s.day_of_week] || `Día ${s.day_of_week}`,
+                        start: formatTime(s.start_time),
+                        end: formatTime(s.end_time),
+                        type: s.default_type === 'virtual' ? 'Virtual' : 'Presencial'
+                    })) : []
+                };
+            } else if (tool === 'getDoctorAvailability' && matchedDoc) {
+                const searchDate = params?.date ? new Date(params.date) : new Date();
+                const availability = await availabilitySearchService.getNextFreeSlot({
+                    doctor_id: matchedDoc.id,
+                    start_date: searchDate,
+                    include_out_of_hours: 'false'
+                });
+                toolData = {
+                    doctorId: matchedDoc.id,
+                    doctorName: matchedDoc.name,
+                    results: availability?.results?.slice(0, 3) || []
+                };
+            }
+
+            // Segunda pasada con el resultado de la herramienta inyectado
+            const followUpPayload = {
+                ...payload,
+                toolResult: {
+                    tool,
+                    data: toolData
+                }
+            };
+
+            const followUpRes = await axios.post(`${AI_SERVICE_URL}/api/v1/patient-message`, followUpPayload, {
+                timeout: 15000,
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (followUpRes.data) {
+                aiResult = followUpRes.data;
+                console.log(`[AI Microservice Follow-Up] Intent: ${aiResult.intent} | Action: ${aiResult.actionRequired}`);
+            }
+        }
 
         // 1. Si el microservicio requiere crear una pre-reserva de turno
         if (aiResult.actionRequired === 'CREATE_PENDING_BOOKING') {
