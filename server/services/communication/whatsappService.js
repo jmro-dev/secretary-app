@@ -3,7 +3,7 @@ const systemSettingsRepository = require('../../repositories/system/systemSettin
 const appointmentRepository = require('../../repositories/appointments/appointmentRepository');
 const whatsappRepository = require('../../repositories/communication/whatsappRepository');
 const whatsappRetryQueue = require('./whatsappRetryQueue');
-const whatsappAiBookingService = require('./whatsappAiBookingService');
+const aiMicroserviceClient = require('./aiMicroserviceClient');
 const { formatDateDisplay, formatTimeDisplay } = require('../../utils/core/dateUtils');
 
 const getMetaCredentials = async () => {
@@ -353,8 +353,8 @@ const handleWebhook = async (sender, message, isFromMe) => {
     const shouldProcessAi = process.env.WHATSAPP_AI_AUTO_BOOKING_ENABLED === 'true' && (!isFromMe || allowSelfTest) && patientId;
 
     if (shouldProcessAi) {
-        whatsappAiBookingService.processInboundMessage({ sender, message, patientId, phone })
-            .catch(err => console.error('[WhatsApp AI Booking Error]:', err.message));
+        aiMicroserviceClient.processInboundMessage({ sender, message, patientId, phone })
+            .catch(err => console.error('[WhatsApp AI Error]:', err.message));
     }
 };
 

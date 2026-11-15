@@ -10,7 +10,7 @@ jest.mock('../../repositories/communication/pendingBookingRepository');
 jest.mock('../../services/appointments/bookingService');
 jest.mock('../../repositories/user/patientRepository');
 jest.mock('../../repositories/user/doctorRepository');
-jest.mock('../../services/communication/whatsappAiBookingService');
+jest.mock('../../services/communication/aiMicroserviceClient');
 jest.mock('../../services/appointments/availabilitySearchService');
 jest.mock('../../repositories/system/systemSettingsRepository', () => ({
     findManyByKeys: jest.fn(),
@@ -32,7 +32,7 @@ const pendingBookingRepository = require('../../repositories/communication/pendi
 const bookingService = require('../../services/appointments/bookingService');
 const patientRepository = require('../../repositories/user/patientRepository');
 const doctorRepository = require('../../repositories/user/doctorRepository');
-const whatsappAiBookingService = require('../../services/communication/whatsappAiBookingService');
+const whatsappAiBookingService = require('../../services/communication/aiMicroserviceClient');
 const availabilitySearchService = require('../../services/appointments/availabilitySearchService');
 const systemSettingsRepository = require('../../repositories/system/systemSettingsRepository');
 

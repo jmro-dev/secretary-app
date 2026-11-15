@@ -4,7 +4,7 @@ const pendingBookingService = require('../../services/communication/pendingBooki
 const patientRepository = require('../../repositories/user/patientRepository');
 const doctorRepository = require('../../repositories/user/doctorRepository');
 const availabilitySearchService = require('../../services/appointments/availabilitySearchService');
-const whatsappAiBookingService = require('../../services/communication/whatsappAiBookingService');
+const whatsappAiBookingService = require('../../services/communication/aiMicroserviceClient');
 
 /**
  * ECC-Pattern: WhatsAppController
