@@ -4,7 +4,6 @@ const appointmentRepository = require('../../repositories/appointments/appointme
 const doctorRepository = require('../../repositories/user/doctorRepository');
 const pendingBookingRepository = require('../../repositories/communication/pendingBookingRepository');
 const availabilitySearchService = require('../appointments/availabilitySearchService');
-const whatsappService = require('./whatsappService');
 
 if (process.env.SENTRY_DSN) {
     try {
@@ -53,13 +52,8 @@ async function resolveDoctorCandidates({ requestedDoctorName, patientId }) {
                 if (doc) return [doc];
                 return [{ id: lastAppointment.doctor_id, full_name: 'Médico de cabecera' }];
             }
-
-            const firstDoctor = await doctorRepository.findFirst();
-            if (firstDoctor && firstDoctor.id) {
-                return [firstDoctor];
-            }
         } catch (err) {
-            console.error('[AI Booking] Error resolving fallback doctor:', err.message);
+            console.error('[AI Booking] Error resolving patient prior doctor:', err.message);
             Sentry.captureException(err, { extra: { patientId } });
         }
     }
@@ -230,19 +224,7 @@ function extractToolCalls(responseMessage) {
             return [{ name: parsed.name, arguments: parsed.arguments }];
         }
     } catch {
-        // regex fallback
-    }
-
-    const regex = /\{[^{}]*"name"\s*:\s*"(?:gestionar_solicitud_turno|buscar_turnos_disponibles)"[^{}]*\}/g;
-    const matches = clean.match(regex);
-    if (matches) {
-        return matches.map(m => {
-            try {
-                return JSON.parse(m);
-            } catch {
-                return null;
-            }
-        }).filter(Boolean);
+        return [];
     }
 
     return [];
@@ -251,6 +233,7 @@ function extractToolCalls(responseMessage) {
 async function notifyPatient(phone, message, patientId) {
     if (!phone || !message) return;
     try {
+        const whatsappService = require('./whatsappService');
         if (whatsappService && typeof whatsappService.sendMessageDirect === 'function') {
             await whatsappService.sendMessageDirect(phone, message, patientId);
         }
