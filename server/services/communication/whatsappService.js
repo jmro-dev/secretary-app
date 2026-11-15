@@ -74,7 +74,12 @@ const sendMessageDirect = async (to, message, patientId = null) => {
 
     // Guarda de Seguridad: Modo Dry-Run / Desarrollo
     // Evita terminantemente enviar mensajes a teléfonos de pacientes reales fuera de producción.
-    const isDryRun = process.env.WHATSAPP_DRY_RUN === 'true' || (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test');
+    // Excepción controlada: WHATSAPP_DEV_SELF_TEST=true permite enviar al teléfono configurado en WHATSAPP_SELF_TEST_PHONE
+    const isSelfTestAllowed = process.env.WHATSAPP_DEV_SELF_TEST === 'true' &&
+        process.env.WHATSAPP_SELF_TEST_PHONE &&
+        normalizePhoneForWhatsapp(process.env.WHATSAPP_SELF_TEST_PHONE) === formattedRecipient;
+
+    const isDryRun = (process.env.WHATSAPP_DRY_RUN === 'true' || (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test')) && !isSelfTestAllowed;
     if (isDryRun) {
         console.log(`🛡️ [WhatsApp DRY-RUN / DEV] Mensaje interceptado para: ${formattedRecipient} (NO enviado al teléfono real)`);
         console.log(`   Texto: "${message.substring(0, 100)}${message.length > 100 ? '...' : ''}"`);
