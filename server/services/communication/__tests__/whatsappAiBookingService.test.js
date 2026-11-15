@@ -238,4 +238,28 @@ describe('whatsappAiBookingService - processInboundMessage Full Flow', () => {
         expect(sentText).toContain('2026-11-15');
         expect(sentText).toContain('09:30 hs');
     });
+
+    it('answers follow-up conversation when patient already has an active pending booking', async () => {
+        pendingBookingRepository.findActiveByPatient.mockResolvedValueOnce({
+            id: 42,
+            doctor_name: 'Maria Cecilia Scheerle',
+            requested_slot_date: '2026-11-16',
+            requested_slot_time: '08:30'
+        });
+
+        const res = await processInboundMessage({
+            sender: '5491112345678@s.whatsapp.net',
+            message: 'Y antes no hay nada?',
+            patientId: 10,
+            phone: '5491112345678'
+        });
+
+        expect(res.status).toBe('follow_up_answered');
+        expect(whatsappService.sendMessageDirect).toHaveBeenCalledTimes(1);
+        const replyText = whatsappService.sendMessageDirect.mock.calls[0][1];
+        expect(replyText).toContain('Maria Cecilia Scheerle');
+        expect(replyText).toContain('2026-11-16');
+        expect(replyText).toContain('08:30');
+        expect(pendingBookingRepository.create).not.toHaveBeenCalled();
+    });
 });

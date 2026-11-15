@@ -242,6 +242,46 @@ async function notifyPatient(phone, message, patientId) {
     }
 }
 
+async function handleFollowUpConversation({ activeBooking, message, patientId, phone }) {
+    const doctorName = activeBooking.doctor_name || 'el profesional';
+    const slotDate = activeBooking.requested_slot_date;
+    const slotTime = activeBooking.requested_slot_time;
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (apiKey) {
+        try {
+            const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+            const systemPrompt =
+                `Eres el asistente virtual del consultorio médico. ` +
+                `El paciente tiene una solicitud de turno pendiente registrada para ${doctorName} ` +
+                `el día ${slotDate} a las ${slotTime} hs (en revisión por secretaría). ` +
+                `El paciente envía un nuevo mensaje: "${message}". ` +
+                `Responde amablemente en español rioplatense (máximo 2 párrafos cortos), explicando que ese es el primer turno disponible según la agenda, ` +
+                `pero que ya informamos a la secretaría por si se libera un espacio o sobreturno antes. ` +
+                `No inventes turnos ni modifiques la solicitud.`;
+
+            const payload = {
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                contents: [{ parts: [{ text: message }] }]
+            };
+
+            const res = await axios.post(url, payload, { headers: { 'Content-Type': 'application/json' }, timeout: 15000 });
+            const aiText = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (aiText && aiText.trim()) {
+                await notifyPatient(phone, aiText.trim(), patientId);
+                return { status: 'follow_up_answered', reply: aiText.trim() };
+            }
+        } catch (err) {
+            console.warn('[AI Booking] Gemini follow-up error (%s). Using fallback template.', err.message);
+        }
+    }
+
+    const fallbackReply = `Hola! Ya tenemos registrada tu solicitud para ${doctorName} el ${slotDate} a las ${slotTime} hs. Ese es el primer horario disponible en agenda, pero ya avisamos a la secretaría para que revise si surge alguna cancelación o sobreturno previo.`;
+    await notifyPatient(phone, fallbackReply, patientId);
+    return { status: 'follow_up_answered', reply: fallbackReply };
+}
+
 async function processInboundMessage({ sender: _sender, message, patientId, phone }) {
     if (!patientId || !message || typeof message !== 'string') {
         return null;
@@ -250,8 +290,8 @@ async function processInboundMessage({ sender: _sender, message, patientId, phon
     try {
         const active = await pendingBookingRepository.findActiveByPatient(patientId);
         if (active) {
-            console.log(`[AI Booking] Patient ${patientId} already has an active pending booking. Skipping duplicate.`);
-            return null;
+            console.log(`[AI Booking] Patient ${patientId} has an active booking (#${active.id}). Handling follow-up.`);
+            return await handleFollowUpConversation({ activeBooking: active, message, patientId, phone });
         }
     } catch (err) {
         console.warn('[AI Booking] Could not check active pending bookings:', err.message);
