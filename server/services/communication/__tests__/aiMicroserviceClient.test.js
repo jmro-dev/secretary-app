@@ -13,13 +13,15 @@ jest.mock('../../../repositories/appointments/appointmentRepository', () => ({
 }));
 jest.mock('../../../repositories/user/doctorRepository', () => ({
     findFirst: jest.fn(),
-    findById: jest.fn()
+    findById: jest.fn(),
+    findAll: jest.fn()
 }));
 jest.mock('@sentry/node', () => ({
     captureException: jest.fn()
 }));
 
 const axios = require('axios');
+const doctorRepository = require('../../../repositories/user/doctorRepository');
 const whatsappService = require('../whatsappService');
 const pendingBookingRepository = require('../../../repositories/communication/pendingBookingRepository');
 const availabilitySearchService = require('../../appointments/availabilitySearchService');
@@ -31,6 +33,10 @@ describe('aiMicroserviceClient - Delegation to edi3-ai-production', () => {
     });
 
     it('delegates message and dispatches suggestedReply when REPLY_ONLY', async () => {
+        doctorRepository.findAll.mockResolvedValueOnce([
+            { id: 10, full_name: 'Maria Cecilia Scheerle', specialty: 'Psiquiatra', consultation_price: 65000 }
+        ]);
+
         axios.post.mockResolvedValueOnce({
             data: {
                 intent: 'INFORMACION_HORARIOS',
@@ -49,6 +55,16 @@ describe('aiMicroserviceClient - Delegation to edi3-ai-production', () => {
         });
 
         expect(res.intent).toBe('INFORMACION_HORARIOS');
+        expect(axios.post).toHaveBeenCalledWith(
+            expect.stringContaining('/api/v1/patient-message'),
+            expect.objectContaining({
+                clinicContext: expect.objectContaining({
+                    clinicName: 'Cima Salud Tandil',
+                    secretaryHours: 'Lunes a Viernes hasta las 14:00 hs'
+                })
+            }),
+            expect.any(Object)
+        );
         expect(whatsappService.sendMessageDirect).toHaveBeenCalledWith(
             '5492494523129',
             'La secretaría atiende hasta las 14:00 hs.',

@@ -22,20 +22,48 @@ async function resolveDoctorForPatient(patientId) {
     }
 }
 
+async function buildClinicContext() {
+    try {
+        const doctors = await doctorRepository.findAll();
+        const mappedDoctors = Array.isArray(doctors) ? doctors.map(d => ({
+            id: Number(d.id),
+            name: d.full_name || `${d.first_name || ''} ${d.last_name || ''}`.trim(),
+            specialty: d.specialty || 'General',
+            consultationPrice: Math.max(Number(d.consultation_price || 0), 1000)
+        })) : [];
+
+        return {
+            clinicName: 'Cima Salud Tandil',
+            secretaryHours: 'Lunes a Viernes hasta las 14:00 hs',
+            address: 'Montiel 1255, Tandil (entre Pellegrini y Montevideo)',
+            doctors: mappedDoctors
+        };
+    } catch (e) {
+        return {
+            clinicName: 'Cima Salud Tandil',
+            secretaryHours: 'Lunes a Viernes hasta las 14:00 hs',
+            address: 'Montiel 1255, Tandil'
+        };
+    }
+}
+
 async function processInboundMessage({ sender: _sender, message, patientId, phone }) {
     if (!patientId || !message || typeof message !== 'string') return null;
 
     try {
+        const clinicContext = await buildClinicContext();
+
         // Consultar al microservicio edi3-ai-production
         const payload = {
             tenantId: TENANT_ID,
             patientId: Number(patientId),
             phone: phone.startsWith('+') ? phone : `+${phone}`,
-            message
+            message,
+            clinicContext
         };
 
         const res = await axios.post(`${AI_SERVICE_URL}/api/v1/patient-message`, payload, {
-            timeout: 10000,
+            timeout: 15000,
             headers: { 'Content-Type': 'application/json' }
         });
 
