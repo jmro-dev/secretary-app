@@ -1,12 +1,21 @@
 const axios = require('axios');
 const Sentry = require('@sentry/node');
 const doctorRepository = require('../../repositories/user/doctorRepository');
+const scheduleRepository = require('../../repositories/appointments/scheduleRepository');
 const appointmentRepository = require('../../repositories/appointments/appointmentRepository');
 const pendingBookingRepository = require('../../repositories/communication/pendingBookingRepository');
 const availabilitySearchService = require('../appointments/availabilitySearchService');
+const whatsappRepository = require('../../repositories/communication/whatsappRepository');
 
 const AI_SERVICE_URL = process.env.EDI3_AI_SERVICE_URL || 'http://127.0.0.1:8000';
 const TENANT_ID = process.env.EDI3_TENANT_ID || 'cima-salud';
+
+const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+function formatTime(timeStr) {
+    if (!timeStr) return '';
+    return timeStr.slice(0, 5);
+}
 
 async function resolveDoctorForPatient(patientId) {
     if (!patientId) return null;
@@ -25,15 +34,51 @@ async function resolveDoctorForPatient(patientId) {
 async function buildClinicContext() {
     try {
         const doctors = await doctorRepository.findAll();
-        const mappedDoctors = Array.isArray(doctors) ? doctors.map(d => ({
-            id: Number(d.id),
-            name: d.full_name || `${d.first_name || ''} ${d.last_name || ''}`.trim(),
-            specialty: d.specialty || 'General',
-            consultationPrice: Math.max(Number(d.consultation_price || 0), 1000)
-        })) : [];
+        const mappedDoctors = [];
+
+        if (Array.isArray(doctors)) {
+            for (const d of doctors) {
+                const docId = Number(d.id);
+                let formattedSchedules = [];
+                try {
+                    const rawSchedules = await scheduleRepository.findByDoctor(docId);
+                    if (Array.isArray(rawSchedules) && rawSchedules.length > 0) {
+                        formattedSchedules = rawSchedules
+                            .filter(s => !s.is_break)
+                            .map(s => {
+                                const dayName = DAY_NAMES[s.day_of_week] || `Día ${s.day_of_week}`;
+                                const typeStr = s.default_type === 'virtual' ? ' (Virtual)' : ' (Presencial)';
+                                return `${dayName} de ${formatTime(s.start_time)} a ${formatTime(s.end_time)}${typeStr}`;
+                            });
+                    }
+                } catch (schedErr) {
+                    // Si falla consulta de horarios, continuar con lista vacia
+                }
+
+                mappedDoctors.push({
+                    id: docId,
+                    name: d.full_name || `${d.first_name || ''} ${d.last_name || ''}`.trim(),
+                    specialty: d.specialty || 'General',
+                    consultationPrice: Math.max(Number(d.consultation_price || 0), 1000),
+                    schedules: formattedSchedules
+                });
+            }
+        }
+
+        const now = new Date();
+        const currentLocalTime = now.toLocaleDateString('es-AR', {
+            timeZone: 'America/Argentina/Buenos_Aires',
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
 
         return {
             clinicName: 'Cima Salud Tandil',
+            currentTime: currentLocalTime,
             secretaryHours: 'Lunes a Viernes hasta las 14:00 hs',
             address: 'Montiel 1255, Tandil (entre Pellegrini y Montevideo)',
             doctors: mappedDoctors
@@ -53,12 +98,29 @@ async function processInboundMessage({ sender: _sender, message, patientId, phon
     try {
         const clinicContext = await buildClinicContext();
 
+        // Obtener historial conversacional reciente (últimos 6 mensajes)
+        let conversationHistory = [];
+        try {
+            const rawHistory = await whatsappRepository.getHistoryByPatient(patientId, phone);
+            if (Array.isArray(rawHistory) && rawHistory.length > 0) {
+                // Tomar los últimos 6 mensajes previos
+                const recent = rawHistory.slice(-6);
+                conversationHistory = recent.map(m => ({
+                    role: m.direction === 'inbound' ? 'paciente' : 'asistente',
+                    content: m.body || ''
+                }));
+            }
+        } catch (histErr) {
+            // Continuar sin historial si falla
+        }
+
         // Consultar al microservicio edi3-ai-production
         const payload = {
             tenantId: TENANT_ID,
             patientId: Number(patientId),
             phone: phone.startsWith('+') ? phone : `+${phone}`,
             message,
+            conversationHistory,
             clinicContext
         };
 
