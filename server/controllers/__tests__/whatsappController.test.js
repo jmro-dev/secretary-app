@@ -244,16 +244,6 @@ describe('WhatsAppController - pending bookings', () => {
     });
 
     describe('getAiSuggestion', () => {
-        const origKey = process.env.GEMINI_API_KEY;
-
-        beforeEach(() => {
-            process.env.GEMINI_API_KEY = 'test-gemini-key';
-        });
-
-        afterEach(() => {
-            process.env.GEMINI_API_KEY = origKey;
-        });
-
         it('returns fallback message when there are no previous messages', async () => {
             whatsappService.getPatientHistory.mockResolvedValue([]);
             req.body = { patientId: 5 };
@@ -267,22 +257,7 @@ describe('WhatsAppController - pending bookings', () => {
             });
         });
 
-        it('returns 503 when GEMINI_API_KEY is not configured', async () => {
-            delete process.env.GEMINI_API_KEY;
-            whatsappService.getPatientHistory.mockResolvedValue([
-                { direction: 'inbound', body: 'Hola' }
-            ]);
-            req.body = { patientId: 5 };
-
-            await whatsappController.getAiSuggestion(req, res);
-
-            expect(res.statusCode).toBe(503);
-            expect(res._getJSONData()).toEqual({
-                error: 'Configuración de IA incompleta (Falta GEMINI_API_KEY).'
-            });
-        });
-
-        it('calls Gemini endpoint and returns AI suggestion text', async () => {
+        it('calls edi3-ai-production endpoint and returns AI suggestion text', async () => {
             whatsappService.getPatientHistory.mockResolvedValue([
                 { direction: 'inbound', body: 'Tienen turno para hoy?' },
                 { direction: 'outbound', body: 'Hola, con qué doctor?' },
@@ -292,13 +267,8 @@ describe('WhatsAppController - pending bookings', () => {
 
             axios.post.mockResolvedValue({
                 data: {
-                    candidates: [
-                        {
-                            content: {
-                                parts: [{ text: 'Hola! Para hoy no nos quedan turnos disponibles con el Dr. House.' }]
-                            }
-                        }
-                    ]
+                    intent: 'SOLICITUD_TURNO',
+                    suggestedReply: 'Hola! Para hoy no nos quedan turnos disponibles.'
                 }
             });
 
@@ -308,55 +278,7 @@ describe('WhatsAppController - pending bookings', () => {
             expect(res.statusCode).toBe(200);
             expect(res._getJSONData()).toEqual({
                 success: true,
-                suggestion: 'Hola! Para hoy no nos quedan turnos disponibles con el Dr. House.',
-                suggestedSlot: null
-            });
-        });
-
-        it('returns suggestedSlot when doctor and free slots are found', async () => {
-            whatsappService.getPatientHistory.mockResolvedValue([
-                { direction: 'inbound', body: 'Tienen turno con el Dr. House?' }
-            ]);
-            req.body = { patientId: 5, phone: '+5491112345678' };
-
-            patientRepository.findById.mockResolvedValue({ id: 5, first_name: 'Juan' });
-            whatsappAiBookingService.resolveDoctorForPatient.mockResolvedValue(3);
-            doctorRepository.findById.mockResolvedValue({ id: 3, full_name: 'Dr. House' });
-            availabilitySearchService.getNextFreeSlot.mockResolvedValue({
-                results: [
-                    {
-                        date: '2026-10-30',
-                        dayName: 'viernes 30 de octubre',
-                        slots: [{ time: '16:00' }]
-                    }
-                ]
-            });
-
-            axios.post.mockResolvedValue({
-                data: {
-                    candidates: [
-                        {
-                            content: {
-                                parts: [{ text: 'Hola Juan! Tengo turno para el viernes 30 de octubre a las 16:00 hs con el Dr. House.' }]
-                            }
-                        }
-                    ]
-                }
-            });
-
-            await whatsappController.getAiSuggestion(req, res);
-
-            expect(res.statusCode).toBe(200);
-            expect(res._getJSONData()).toEqual({
-                success: true,
-                suggestion: 'Hola Juan! Tengo turno para el viernes 30 de octubre a las 16:00 hs con el Dr. House.',
-                suggestedSlot: {
-                    date: '2026-10-30',
-                    time: '16:00',
-                    dayName: 'viernes 30 de octubre',
-                    doctorId: 3,
-                    doctorName: 'Dr. House'
-                }
+                suggestion: 'Hola! Para hoy no nos quedan turnos disponibles.'
             });
         });
     });
