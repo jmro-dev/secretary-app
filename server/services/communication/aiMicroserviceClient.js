@@ -60,6 +60,7 @@ async function buildClinicContext() {
                     name: d.full_name || `${d.first_name || ''} ${d.last_name || ''}`.trim(),
                     specialty: d.specialty || 'General',
                     consultationPrice: Math.max(Number(d.consultation_price || 0), 1000),
+                    prescriptionPrice: Number(d.prescription_price || 0),
                     schedules: formattedSchedules
                 });
             }
