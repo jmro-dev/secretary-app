@@ -172,6 +172,22 @@ describe('whatsappService', () => {
             expect(result).toEqual({ ok: true });
             expect(whatsappRepository.createMessage).toHaveBeenCalledWith(1, 'outbound', 'hi', null, 'sent');
         });
+
+        it('intercepts message and persists simulated when WHATSAPP_DRY_RUN is true', async () => {
+            const originalEnv = process.env.WHATSAPP_DRY_RUN;
+            process.env.WHATSAPP_DRY_RUN = 'true';
+
+            try {
+                const result = await whatsappService.sendMessageDirect('5491122334455', 'Mensaje de prueba seguro', 10);
+
+                expect(result.simulated).toBe(true);
+                expect(result.success).toBe(true);
+                expect(axios.post).not.toHaveBeenCalled();
+                expect(whatsappRepository.createMessage).toHaveBeenCalledWith(10, 'outbound', 'Mensaje de prueba seguro', null, 'simulated');
+            } finally {
+                process.env.WHATSAPP_DRY_RUN = originalEnv;
+            }
+        });
     });
 
     describe('getBridgeHealth', () => {

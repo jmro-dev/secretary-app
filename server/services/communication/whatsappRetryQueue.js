@@ -57,6 +57,13 @@ const backoffMs = (attempt) => Math.min(QUEUE_MAX_DELAY_MS, QUEUE_BASE_DELAY_MS(
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const sendOnce = async (item) => {
+    // Guarda de Seguridad en cola de reintentos
+    const isDryRun = process.env.WHATSAPP_DRY_RUN === 'true' || (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test');
+    if (isDryRun) {
+        console.log(`🛡️ [WhatsApp RetryQueue DRY-RUN] Interceptado reintento para ${item.to}`);
+        return { status: 200, data: { success: true, simulated: true } };
+    }
+
     const recipient = normalizePhone(item.to);
     const bridgeUrl = process.env.WHATSAPP_BRIDGE_URL || 'http://127.0.0.1:8090/api/send';
     return axios.post(bridgeUrl, { recipient, message: item.message });

@@ -71,6 +71,23 @@ const normalizePhoneForWhatsapp = (phone) => {
  */
 const sendMessageDirect = async (to, message, patientId = null) => {
     const formattedRecipient = normalizePhoneForWhatsapp(to);
+
+    // Guarda de Seguridad: Modo Dry-Run / Desarrollo
+    // Evita terminantemente enviar mensajes a teléfonos de pacientes reales fuera de producción.
+    const isDryRun = process.env.WHATSAPP_DRY_RUN === 'true' || (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test');
+    if (isDryRun) {
+        console.log(`🛡️ [WhatsApp DRY-RUN / DEV] Mensaje interceptado para: ${formattedRecipient} (NO enviado al teléfono real)`);
+        console.log(`   Texto: "${message.substring(0, 100)}${message.length > 100 ? '...' : ''}"`);
+
+        if (patientId) {
+            await whatsappRepository.createMessage(patientId, 'outbound', message, null, 'simulated');
+        } else {
+            await whatsappRepository.createMessage(null, 'outbound', message, null, 'simulated', to);
+        }
+
+        return { success: true, simulated: true, recipient: formattedRecipient };
+    }
+
     const bridgeUrl = process.env.WHATSAPP_BRIDGE_URL || 'http://127.0.0.1:8090/api/send';
 
     try {
