@@ -4,7 +4,6 @@ const doctorRepository = require('../../repositories/user/doctorRepository');
 const appointmentRepository = require('../../repositories/appointments/appointmentRepository');
 const pendingBookingRepository = require('../../repositories/communication/pendingBookingRepository');
 const availabilitySearchService = require('../appointments/availabilitySearchService');
-const whatsappService = require('./whatsappService');
 
 const AI_SERVICE_URL = process.env.EDI3_AI_SERVICE_URL || 'http://127.0.0.1:8000';
 const TENANT_ID = process.env.EDI3_TENANT_ID || 'cima-salud';
@@ -72,6 +71,7 @@ async function processInboundMessage({ sender: _sender, message, patientId, phon
 
         // 2. Si el microservicio generó una respuesta sugerida, despacharla al paciente
         if (aiResult.suggestedReply && aiResult.suggestedReply.trim()) {
+            const whatsappService = require('./whatsappService');
             await whatsappService.sendMessageDirect(phone, aiResult.suggestedReply.trim(), patientId);
         }
 
