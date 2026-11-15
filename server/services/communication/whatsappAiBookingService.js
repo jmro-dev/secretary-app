@@ -4,6 +4,7 @@ const appointmentRepository = require('../../repositories/appointments/appointme
 const doctorRepository = require('../../repositories/user/doctorRepository');
 const pendingBookingRepository = require('../../repositories/communication/pendingBookingRepository');
 const availabilitySearchService = require('../appointments/availabilitySearchService');
+const clinicKnowledgeRepository = require('../../repositories/communication/clinicKnowledgeRepository');
 
 if (process.env.SENTRY_DSN) {
     try {
@@ -242,10 +243,42 @@ async function notifyPatient(phone, message, patientId) {
     }
 }
 
+async function getDynamicContext(doctorId) {
+    let schedulesText = 'Horarios no definidos.';
+    if (doctorId) {
+        try {
+            const schedules = await doctorRepository.getDoctorSchedules(doctorId);
+            if (Array.isArray(schedules) && schedules.length > 0) {
+                const daysMap = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                schedulesText = schedules
+                    .map(s => `${daysMap[s.day_of_week] || `Día ${s.day_of_week}`}: ${s.start_time.slice(0, 5)} a ${s.end_time.slice(0, 5)} hs (${s.default_type || 'consulta'})`)
+                    .join(', ');
+            }
+        } catch (e) {
+            console.warn('[AI Booking] Could not load dynamic schedules for doctor %s: %s', doctorId, e.message);
+        }
+    }
+
+    let knowledgeText = '';
+    try {
+        const docs = await clinicKnowledgeRepository.findAllActive();
+        if (Array.isArray(docs) && docs.length > 0) {
+            knowledgeText = docs.map(d => `### ${d.title}\n${d.content}`).join('\n\n');
+        }
+    } catch (e) {
+        console.warn('[AI Booking] Could not load dynamic clinic knowledge: %s', e.message);
+    }
+
+    return { schedulesText, knowledgeText };
+}
+
 async function handleFollowUpConversation({ activeBooking, message, patientId, phone }) {
     const doctorName = activeBooking.doctor_name || 'el profesional';
+    const doctorId = activeBooking.doctor_id;
     const slotDate = activeBooking.requested_slot_date;
     const slotTime = activeBooking.requested_slot_time;
+
+    const { schedulesText, knowledgeText } = await getDynamicContext(doctorId);
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (apiKey) {
@@ -253,13 +286,17 @@ async function handleFollowUpConversation({ activeBooking, message, patientId, p
             const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
             const systemPrompt =
-                `Eres el asistente virtual del consultorio médico. ` +
-                `El paciente tiene una solicitud de turno pendiente registrada para ${doctorName} ` +
-                `el día ${slotDate} a las ${slotTime} hs (en revisión por secretaría). ` +
-                `El paciente envía un nuevo mensaje: "${message}". ` +
-                `Responde amablemente en español rioplatense (máximo 2 párrafos cortos), explicando que ese es el primer turno disponible según la agenda, ` +
-                `pero que ya informamos a la secretaría por si se libera un espacio o sobreturno antes. ` +
-                `No inventes turnos ni modifiques la solicitud.`;
+                `Eres el asistente virtual de la clínica médica. ` +
+                `Contexto del paciente:\n` +
+                `- Tiene una solicitud de turno pendiente registrada para ${doctorName} el día ${slotDate} a las ${slotTime} hs (en revisión por secretaría).\n\n` +
+                `Datos dinámicos de la clínica y del profesional:\n` +
+                `- Horarios habituales de atención de ${doctorName}: ${schedulesText}\n` +
+                `- Información oficial de la clínica:\n${knowledgeText}\n\n` +
+                `Instrucciones de respuesta:\n` +
+                `1. Si el paciente pregunta por horarios de ${doctorName} o de secretaría, responde con los datos dinámicos oficiales provistos arriba.\n` +
+                `2. Si el paciente menciona que se le terminó la medicación o pide una receta, explícale cómo funciona el trámite de recetas según la información oficial (plazo de 72 hs hábiles, datos a enviar a secretaría) sin que tenga que esperar obligatoriamente a la fecha del turno.\n` +
+                `3. Si consulta si hay turnos antes, explícale que ese es el primer espacio libre según la agenda pero que ya notificaste a secretaría por si surge alguna cancelación o sobreturno.\n` +
+                `4. Responde en español rioplatense, de forma concisa, cálida y profesional (máximo 2 párrafos breves).`;
 
             const payload = {
                 systemInstruction: { parts: [{ text: systemPrompt }] },

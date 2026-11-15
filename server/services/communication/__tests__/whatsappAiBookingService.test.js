@@ -11,6 +11,12 @@ jest.mock('../../../repositories/communication/pendingBookingRepository', () => 
     findActiveByPatient: jest.fn(),
     create: jest.fn()
 }));
+jest.mock('../../../repositories/communication/clinicKnowledgeRepository', () => ({
+    findAllActive: jest.fn().mockResolvedValue([
+        { id: 1, title: 'Atención', content: 'Secretaría atiende hasta las 14:00 hs' },
+        { id: 2, title: 'Recetas', content: 'Las recetas demoran 72 hs hábiles' }
+    ])
+}));
 jest.mock('../../appointments/availabilitySearchService', () => ({
     getNextFreeSlot: jest.fn()
 }));
