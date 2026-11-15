@@ -344,7 +344,10 @@ const handleWebhook = async (sender, message, isFromMe) => {
     const direction = isFromMe ? 'outbound' : 'inbound';
     await whatsappRepository.createMessage(patientId, direction, message, null, 'delivered', patientId ? null : phone);
 
-    if (process.env.WHATSAPP_AI_AUTO_BOOKING_ENABLED === 'true' && !isFromMe && patientId) {
+    const allowSelfTest = process.env.WHATSAPP_DEV_SELF_TEST === 'true' && process.env.NODE_ENV !== 'production';
+    const shouldProcessAi = process.env.WHATSAPP_AI_AUTO_BOOKING_ENABLED === 'true' && (!isFromMe || allowSelfTest) && patientId;
+
+    if (shouldProcessAi) {
         whatsappAiBookingService.processInboundMessage({ sender, message, patientId, phone })
             .catch(err => console.error('[WhatsApp AI Booking Error]:', err.message));
     }
