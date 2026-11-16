@@ -6,6 +6,7 @@ const appointmentRepository = require('../../repositories/appointments/appointme
 const pendingBookingRepository = require('../../repositories/communication/pendingBookingRepository');
 const availabilitySearchService = require('../appointments/availabilitySearchService');
 const whatsappRepository = require('../../repositories/communication/whatsappRepository');
+const aiConfigService = require('./aiConfigService');
 
 const AI_SERVICE_URL = process.env.EDI3_AI_SERVICE_URL || 'http://127.0.0.1:8000';
 const TENANT_ID = process.env.EDI3_TENANT_ID || 'cima-salud';
@@ -17,6 +18,17 @@ function formatTime(timeStr) {
     return timeStr.slice(0, 5);
 }
 
+function formatSchedules(rawSchedules) {
+    if (!Array.isArray(rawSchedules)) return [];
+    return rawSchedules
+        .filter(s => !s.is_break)
+        .map(s => {
+            const dayName = DAY_NAMES[s.day_of_week] || `Día ${s.day_of_week}`;
+            const typeStr = s.default_type === 'virtual' ? ' (Virtual)' : ' (Presencial)';
+            return `${dayName} de ${formatTime(s.start_time)} a ${formatTime(s.end_time)}${typeStr}`;
+        });
+}
+
 async function resolveDoctorForPatient(patientId) {
     if (!patientId) return null;
     try {
@@ -26,130 +38,112 @@ async function resolveDoctorForPatient(patientId) {
         }
         const first = await doctorRepository.findFirst();
         return first ? first.id : null;
-    } catch (e) {
+    } catch (_e) {
         return null;
     }
 }
 
-async function buildClinicContext() {
-    try {
-        const doctors = await doctorRepository.findAll();
-        const mappedDoctors = [];
+async function buildDoctors() {
+    const doctors = await doctorRepository.findAll();
+    const mappedDoctors = [];
 
-        if (Array.isArray(doctors)) {
-            for (const d of doctors) {
-                const docId = Number(d.id);
-                let formattedSchedules = [];
-                try {
-                    const rawSchedules = await scheduleRepository.findByDoctor(docId);
-                    if (Array.isArray(rawSchedules) && rawSchedules.length > 0) {
-                        formattedSchedules = rawSchedules
-                            .filter(s => !s.is_break)
-                            .map(s => {
-                                const dayName = DAY_NAMES[s.day_of_week] || `Día ${s.day_of_week}`;
-                                const typeStr = s.default_type === 'virtual' ? ' (Virtual)' : ' (Presencial)';
-                                return `${dayName} de ${formatTime(s.start_time)} a ${formatTime(s.end_time)}${typeStr}`;
-                            });
-                    }
-                } catch (schedErr) {
-                    // Si falla consulta de horarios, continuar con lista vacia
-                }
-
-                mappedDoctors.push({
-                    id: docId,
-                    name: d.full_name || `${d.first_name || ''} ${d.last_name || ''}`.trim(),
-                    specialty: d.specialty || 'General',
-                    consultationPrice: Math.max(Number(d.consultation_price || 0), 1000),
-                    prescriptionPrice: Number(d.prescription_price || 0),
-                    schedules: formattedSchedules
-                });
+    if (Array.isArray(doctors)) {
+        for (const d of doctors) {
+            const docId = Number(d.id);
+            let formattedSchedules = [];
+            try {
+                const rawSchedules = await scheduleRepository.findByDoctor(docId);
+                formattedSchedules = formatSchedules(rawSchedules);
+            } catch (_schedErr) {
+                // Si falla la consulta de horarios, continuar con lista vacía
             }
+
+            mappedDoctors.push({
+                id: docId,
+                name: d.full_name || `${d.first_name || ''} ${d.last_name || ''}`.trim(),
+                specialty: d.specialty || 'General',
+                consultationPrice: d.consultation_price === null || d.consultation_price === undefined
+                    ? null
+                    : Number(d.consultation_price),
+                prescriptionPrice: Number(d.prescription_price || 0),
+                schedules: formattedSchedules
+            });
         }
-
-        const now = new Date();
-        const currentLocalTime = now.toLocaleDateString('es-AR', {
-            timeZone: 'America/Argentina/Buenos_Aires',
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-
-        return {
-            clinicName: 'Cima Salud Tandil',
-            currentTime: currentLocalTime,
-            secretaryHours: 'Lunes a Viernes hasta las 14:00 hs',
-            address: 'Montiel 1255, Tandil (entre Pellegrini y Montevideo)',
-            doctors: mappedDoctors
-        };
-    } catch (e) {
-        return {
-            clinicName: 'Cima Salud Tandil',
-            secretaryHours: 'Lunes a Viernes hasta las 14:00 hs',
-            address: 'Montiel 1255, Tandil'
-        };
     }
+
+    return mappedDoctors;
 }
 
-const CLINICAL_SYSTEM_CONFIG = {
-    systemRole: `Eres el asistente virtual clínico oficial de atención por mensajería para consultorios médicos Cima Salud Tandil.
-Tu función es clasificar la intención del paciente, extraer entidades médicas y sugerir respuestas empáticas, profesionales y precisas.`,
-    emergencyGuardrail: {
-        terms: ['pecho', 'infarto', 'respirar', 'aire', 'desmayo', 'asfixia', 'coronario'],
-        reply: '⚠️ Por los síntomas que describes, te recomendamos acudir de inmediato a la guardia médica más cercana o comunicarte con el servicio de emergencias médicas (107 / 911). La secretaría ha sido notificada.',
-        actionRequired: 'ESCALATE_HUMAN',
-        intent: 'EMERGENCIA_VITAL',
-        urgency: 'alta'
-    },
-    restrictedGuardrail: {
-        terms: ['clonazepam', 'rivotril', 'receta', 'medicamento', 'farmaco', 'ansiolitico', 'morfina'],
-        reply: 'Hola. Te recordamos que la emisión o renovación de recetas médicas requiere evaluación médica presencial o consulta programada. No se emiten recetas automáticas por WhatsApp.',
-        actionRequired: 'ESCALATE_HUMAN',
-        intent: 'PRESCRIPCION_RESTRINGIDA',
-        urgency: 'baja'
-    },
-    allowedIntents: [
-        'SOLICITUD_TURNO',
-        'CONSULTA_ARANCEL',
-        'CANCELACION_REPROGRAMACION',
-        'INFORMACION_HORARIOS',
-        'OTRO'
-    ]
-};
+function localTimeString() {
+    return new Date().toLocaleDateString('es-AR', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function isInferenceUnavailable(result) {
+    return Boolean(result && result.ok === false && result.error === 'INFERENCE_UNAVAILABLE');
+}
+
+/**
+ * Resuelve el médico para una pre-reserva usando primero lo que la IA extrajo
+ * del mensaje y, como respaldo, el historial del paciente. Nunca inventa un id.
+ */
+async function resolveBookingDoctor(aiResult, patientId, doctors) {
+    const requestedName = String(
+        aiResult?.entities?.doctorName
+        || aiResult?.toolCall?.params?.doctorName
+        || ''
+    ).toLowerCase().trim();
+
+    if (requestedName && Array.isArray(doctors)) {
+        const matched = doctors.find(d => String(d.name || '').toLowerCase().includes(requestedName));
+        if (matched) return matched.id;
+    }
+
+    return resolveDoctorForPatient(patientId);
+}
+
+async function buildConversationHistory(patientId, phone) {
+    try {
+        const rawHistory = await whatsappRepository.getHistoryByPatient(patientId, phone);
+        if (!Array.isArray(rawHistory) || rawHistory.length === 0) return [];
+        return rawHistory.slice(-6).map(m => ({
+            role: m.direction === 'inbound' ? 'paciente' : 'asistente',
+            content: m.body || ''
+        }));
+    } catch (_histErr) {
+        return [];
+    }
+}
 
 async function processInboundMessage({ sender: _sender, message, patientId, phone }) {
     if (!patientId || !message || typeof message !== 'string') return null;
 
     try {
-        const clinicContext = await buildClinicContext();
+        const config = await aiConfigService.loadConfig(TENANT_ID);
+        const doctors = await buildDoctors();
+        const businessContext = aiConfigService.buildBusinessContext({
+            config,
+            doctors,
+            currentTime: localTimeString()
+        });
 
-        // Obtener historial conversacional reciente (últimos 6 mensajes)
-        let conversationHistory = [];
-        try {
-            const rawHistory = await whatsappRepository.getHistoryByPatient(patientId, phone);
-            if (Array.isArray(rawHistory) && rawHistory.length > 0) {
-                // Tomar los últimos 6 mensajes previos
-                const recent = rawHistory.slice(-6);
-                conversationHistory = recent.map(m => ({
-                    role: m.direction === 'inbound' ? 'paciente' : 'asistente',
-                    content: m.body || ''
-                }));
-            }
-        } catch (histErr) {
-            // Continuar sin historial si falla
-        }
+        const conversationHistory = await buildConversationHistory(patientId, phone);
 
-        // Consultar al microservicio edi3-ai-production
         const payload = {
             tenantId: TENANT_ID,
             patientId: Number(patientId),
             phone: phone.startsWith('+') ? phone : `+${phone}`,
             message,
-            systemConfig: CLINICAL_SYSTEM_CONFIG,
+            systemConfig: config.systemConfig,
             conversationHistory,
-            clinicContext
+            businessContext
         };
 
         let res = await axios.post(`${AI_SERVICE_URL}/api/v1/patient-message`, payload, {
@@ -160,6 +154,16 @@ async function processInboundMessage({ sender: _sender, message, patientId, phon
         let aiResult = res.data;
         if (!aiResult) return null;
 
+        // Sin motor de inferencia disponible: silencio hacia el paciente y registro.
+        if (isInferenceUnavailable(aiResult)) {
+            console.warn('[AI Microservice] INFERENCE_UNAVAILABLE', { patientId, latencyMs: aiResult.latencyMs });
+            Sentry.captureMessage('INFERENCE_UNAVAILABLE', {
+                level: 'warning',
+                extra: { patientId, phone, latencyMs: aiResult.latencyMs }
+            });
+            return null;
+        }
+
         console.log(`[AI Microservice] Intent: ${aiResult.intent} | Action: ${aiResult.actionRequired} | Conf: ${aiResult.confidence}`);
 
         // Orquestación en Backend: Si la IA solicita ejecutar una tool dinámica
@@ -168,9 +172,8 @@ async function processInboundMessage({ sender: _sender, message, patientId, phon
             console.log(`[AI Microservice Orchestrator] Executing tool: ${tool} with params:`, params);
 
             let toolData = null;
-            const targetDoctorName = params?.doctorName ? params.doctorName.toLowerCase() : '';
-            const allDoctors = clinicContext.doctors || [];
-            const matchedDoc = allDoctors.find(d => targetDoctorName && d.name.toLowerCase().includes(targetDoctorName)) || allDoctors[0];
+            const targetDoctorName = params?.doctorName ? String(params.doctorName).toLowerCase() : '';
+            const matchedDoc = doctors.find(d => targetDoctorName && d.name.toLowerCase().includes(targetDoctorName)) || doctors[0];
 
             if (tool === 'getDoctorSchedule' && matchedDoc) {
                 const rawSchedules = await scheduleRepository.findByDoctor(matchedDoc.id);
@@ -213,34 +216,44 @@ async function processInboundMessage({ sender: _sender, message, patientId, phon
                 headers: { 'Content-Type': 'application/json' }
             });
 
-            if (followUpRes.data) {
+            if (followUpRes.data && !isInferenceUnavailable(followUpRes.data)) {
                 aiResult = followUpRes.data;
                 console.log(`[AI Microservice Follow-Up] Intent: ${aiResult.intent} | Action: ${aiResult.actionRequired}`);
+            } else if (isInferenceUnavailable(followUpRes.data)) {
+                console.warn('[AI Microservice] INFERENCE_UNAVAILABLE on follow-up', { patientId });
+                Sentry.captureMessage('INFERENCE_UNAVAILABLE', { level: 'warning', extra: { patientId, phone } });
+                return null;
             }
         }
 
         // 1. Si el microservicio requiere crear una pre-reserva de turno
         if (aiResult.actionRequired === 'CREATE_PENDING_BOOKING') {
-            const doctorId = await resolveDoctorForPatient(patientId) || 10;
-            const availability = await availabilitySearchService.getNextFreeSlot({
-                doctor_id: doctorId,
-                start_date: new Date(),
-                include_out_of_hours: 'false'
-            });
-
-            const dayGroup = availability?.results?.[0];
-            const firstSlot = dayGroup?.slots?.[0];
-
-            if (dayGroup?.date && firstSlot?.time) {
-                const pendingId = await pendingBookingRepository.create({
-                    patient_id: patientId,
+            const doctorId = await resolveBookingDoctor(aiResult, patientId, doctors);
+            if (!doctorId) {
+                // Sin médico resoluble no se inventa un id: se registra y se responde lo sugerido.
+                console.warn('[AI Microservice] No se pudo resolver médico para la pre-reserva', { patientId });
+                Sentry.captureMessage('PENDING_BOOKING_WITHOUT_DOCTOR', { level: 'warning', extra: { patientId } });
+            } else {
+                const availability = await availabilitySearchService.getNextFreeSlot({
                     doctor_id: doctorId,
-                    patient_phone: phone,
-                    patient_message: message,
-                    requested_slot_date: dayGroup.date,
-                    requested_slot_time: firstSlot.time
+                    start_date: new Date(),
+                    include_out_of_hours: 'false'
                 });
-                console.log(`[AI Microservice] ✅ Pending booking #${pendingId} created for patient ${patientId}`);
+
+                const dayGroup = availability?.results?.[0];
+                const firstSlot = dayGroup?.slots?.[0];
+
+                if (dayGroup?.date && firstSlot?.time) {
+                    const pendingId = await pendingBookingRepository.create({
+                        patient_id: patientId,
+                        doctor_id: doctorId,
+                        patient_phone: phone,
+                        patient_message: message,
+                        requested_slot_date: dayGroup.date,
+                        requested_slot_time: firstSlot.time
+                    });
+                    console.log(`[AI Microservice] ✅ Pending booking #${pendingId} created for patient ${patientId}`);
+                }
             }
         }
 
