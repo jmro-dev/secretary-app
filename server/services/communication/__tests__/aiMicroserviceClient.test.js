@@ -214,4 +214,64 @@ describe('aiMicroserviceClient - Delegation to edi3-ai-production', () => {
         expect(pendingBookingRepository.create).not.toHaveBeenCalled();
         expect(Sentry.captureMessage).toHaveBeenCalledWith('PENDING_BOOKING_WITHOUT_DOCTOR', expect.any(Object));
     });
+
+    describe('checkHealth', () => {
+        it('returns health payload when microservice is online', async () => {
+            axios.get.mockResolvedValueOnce({
+                status: 200,
+                data: { status: 'ok', uptime: 123.45 }
+            });
+
+            const health = await aiMicroserviceClient.checkHealth();
+            expect(health).toEqual({ status: 'ok', uptime: 123.45 });
+        });
+
+        it('returns null when microservice fails or returns error', async () => {
+            axios.get.mockRejectedValueOnce(new Error('Connection refused'));
+
+            const health = await aiMicroserviceClient.checkHealth();
+            expect(health).toBeNull();
+        });
+    });
+
+    describe('syncKnowledgeDocument', () => {
+        it('syncs document via POST /api/v1/knowledge/documents', async () => {
+            axios.post.mockResolvedValueOnce({
+                status: 201,
+                data: { status: 'indexed', documentId: 'test_doc', chunksIndexed: 2 }
+            });
+
+            const res = await aiMicroserviceClient.syncKnowledgeDocument({
+                tenantId: 'cima-salud',
+                documentId: 'test_doc',
+                title: 'Test Doc',
+                content: 'Test content for rag'
+            });
+
+            expect(axios.post).toHaveBeenCalledWith(
+                expect.stringContaining('/api/v1/knowledge/documents'),
+                {
+                    tenantId: 'cima-salud',
+                    documentId: 'test_doc',
+                    title: 'Test Doc',
+                    content: 'Test content for rag'
+                },
+                expect.any(Object)
+            );
+            expect(res).toEqual({ status: 'indexed', documentId: 'test_doc', chunksIndexed: 2 });
+        });
+
+        it('returns null on failure without throwing', async () => {
+            axios.post.mockRejectedValueOnce(new Error('Timeout'));
+
+            const res = await aiMicroserviceClient.syncKnowledgeDocument({
+                tenantId: 'cima-salud',
+                documentId: 'test_doc',
+                title: 'Test Doc',
+                content: 'Test content for rag'
+            });
+
+            expect(res).toBeNull();
+        });
+    });
 });

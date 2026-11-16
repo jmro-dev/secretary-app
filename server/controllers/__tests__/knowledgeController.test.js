@@ -1,6 +1,7 @@
 const knowledgeController = require('../system/knowledgeController');
 const clinicKnowledgeRepository = require('../../repositories/system/clinicKnowledgeRepository');
 const aiConfigService = require('../../services/communication/aiConfigService');
+const { syncKnowledgeDocument } = require('../../services/communication/aiMicroserviceClient');
 
 jest.mock('../../repositories/system/clinicKnowledgeRepository', () => ({
     findByTenant: jest.fn(),
@@ -11,6 +12,10 @@ jest.mock('../../repositories/system/clinicKnowledgeRepository', () => ({
 
 jest.mock('../../services/communication/aiConfigService', () => ({
     invalidateCache: jest.fn(),
+}));
+
+jest.mock('../../services/communication/aiMicroserviceClient', () => ({
+    syncKnowledgeDocument: jest.fn().mockResolvedValue({ status: 'indexed', documentId: 'doc-1', chunksIndexed: 1 }),
 }));
 
 describe('knowledgeController', () => {
@@ -68,6 +73,12 @@ describe('knowledgeController', () => {
                 category: 'aranceles'
             });
             expect(aiConfigService.invalidateCache).toHaveBeenCalled();
+            expect(syncKnowledgeDocument).toHaveBeenCalledWith({
+                tenantId: 'cima-salud',
+                documentId: 'doc-1',
+                title: 'Doc 1',
+                content: 'Test content'
+            });
             expect(res.json).toHaveBeenCalledWith({ success: true, message: 'Document saved successfully' });
         });
     });

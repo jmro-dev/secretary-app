@@ -1,5 +1,6 @@
 const clinicKnowledgeRepository = require('../../repositories/system/clinicKnowledgeRepository');
 const aiConfigService = require('../../services/communication/aiConfigService');
+const { syncKnowledgeDocument } = require('../../services/communication/aiMicroserviceClient');
 
 const DEFAULT_TENANT_ID = process.env.EDI3_TENANT_ID || 'cima-salud';
 
@@ -40,6 +41,12 @@ exports.upsertDocument = async (req, res) => {
 
         await clinicKnowledgeRepository.upsert(tenantId, { document_id, title, content, category });
         aiConfigService.invalidateCache();
+
+        // Sincronización asíncrona con el microservicio RAG (OpenAPI: POST /api/v1/knowledge/documents)
+        // No bloquea la respuesta si el microservicio de IA está temporalmente offline
+        syncKnowledgeDocument({ tenantId, documentId: document_id, title, content }).catch(syncErr => {
+            console.warn('[KnowledgeController] Sync knowledge error:', syncErr.message);
+        });
 
         res.json({ success: true, message: 'Document saved successfully' });
     } catch (err) {
