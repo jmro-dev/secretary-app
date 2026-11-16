@@ -3,7 +3,7 @@ const systemSettingsRepository = require('../../repositories/system/systemSettin
 const appointmentRepository = require('../../repositories/appointments/appointmentRepository');
 const whatsappRepository = require('../../repositories/communication/whatsappRepository');
 const whatsappRetryQueue = require('./whatsappRetryQueue');
-const whatsappAiBookingService = require('./whatsappAiBookingService');
+const aiMicroserviceClient = require('./aiMicroserviceClient');
 const { formatDateDisplay, formatTimeDisplay } = require('../../utils/core/dateUtils');
 
 const getMetaCredentials = async () => {
@@ -71,6 +71,28 @@ const normalizePhoneForWhatsapp = (phone) => {
  */
 const sendMessageDirect = async (to, message, patientId = null) => {
     const formattedRecipient = normalizePhoneForWhatsapp(to);
+
+    // Guarda de Seguridad: Modo Dry-Run / Desarrollo
+    // Evita terminantemente enviar mensajes a teléfonos de pacientes reales fuera de producción.
+    // Excepción controlada: WHATSAPP_DEV_SELF_TEST=true permite enviar al teléfono configurado en WHATSAPP_SELF_TEST_PHONE
+    const isSelfTestAllowed = process.env.WHATSAPP_DEV_SELF_TEST === 'true' &&
+        process.env.WHATSAPP_SELF_TEST_PHONE &&
+        normalizePhoneForWhatsapp(process.env.WHATSAPP_SELF_TEST_PHONE) === formattedRecipient;
+
+    const isDryRun = (process.env.WHATSAPP_DRY_RUN === 'true' || (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test')) && !isSelfTestAllowed;
+    if (isDryRun) {
+        console.log(`🛡️ [WhatsApp DRY-RUN / DEV] Mensaje interceptado para: ${formattedRecipient} (NO enviado al teléfono real)`);
+        console.log(`   Texto: "${message.substring(0, 100)}${message.length > 100 ? '...' : ''}"`);
+
+        if (patientId) {
+            await whatsappRepository.createMessage(patientId, 'outbound', message, null, 'simulated');
+        } else {
+            await whatsappRepository.createMessage(null, 'outbound', message, null, 'simulated', to);
+        }
+
+        return { success: true, simulated: true, recipient: formattedRecipient };
+    }
+
     const bridgeUrl = process.env.WHATSAPP_BRIDGE_URL || 'http://127.0.0.1:8090/api/send';
 
     try {
@@ -321,15 +343,41 @@ const refreshBridge = async () => {
     }
 };
 
+// Cola secuencial de promesas por teléfono para evitar race conditions y solapamiento de IA
+const phoneTaskQueues = new Map();
+
+function enqueuePhoneTask(phone, taskFn) {
+    const currentQueue = phoneTaskQueues.get(phone) || Promise.resolve();
+    const nextQueue = currentQueue
+        .then(() => taskFn())
+        .catch(err => {
+            console.error('[WhatsApp Queue Error]:', phone, err.message);
+        })
+        .finally(() => {
+            if (phoneTaskQueues.get(phone) === nextQueue) {
+                phoneTaskQueues.delete(phone);
+            }
+        });
+
+    phoneTaskQueues.set(phone, nextQueue);
+    return nextQueue;
+}
+
 const handleWebhook = async (sender, message, isFromMe) => {
     const phone = sender.split('@')[0];
     const patientId = await whatsappRepository.findPatientByPhone(phone);
     const direction = isFromMe ? 'outbound' : 'inbound';
     await whatsappRepository.createMessage(patientId, direction, message, null, 'delivered', patientId ? null : phone);
 
-    if (process.env.WHATSAPP_AI_AUTO_BOOKING_ENABLED === 'true' && !isFromMe && patientId) {
-        whatsappAiBookingService.processInboundMessage({ sender, message, patientId, phone })
-            .catch(err => console.error('[WhatsApp AI Booking Error]:', err.message));
+    const allowSelfTest = process.env.WHATSAPP_DEV_SELF_TEST === 'true' && process.env.NODE_ENV !== 'production';
+    const shouldProcessAi = process.env.WHATSAPP_AI_AUTO_BOOKING_ENABLED === 'true' && (!isFromMe || allowSelfTest) && patientId;
+
+    if (shouldProcessAi) {
+        console.log(`[WhatsApp Webhook] Enqueueing AI inbound task for phone: ${phone} (patient: ${patientId})`);
+        enqueuePhoneTask(phone, async () => {
+            console.log(`[WhatsApp Webhook] Processing AI task for phone: ${phone}...`);
+            await aiMicroserviceClient.processInboundMessage({ sender, message, patientId, phone });
+        });
     }
 };
 

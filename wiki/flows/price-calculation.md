@@ -5,13 +5,14 @@ responsibility: Pricing resolution through doctor tariffs, institution coverage,
 sources:
   - server/01-schema.sql
   - server/utils/finance/priceCalculator.js
-synced: d34c1014
-sources_key: e04d9f73cf05
+synced: 48185ad7
+sources_key: 9b687a0a805b
 related:
   - ../architecture.md
   - ./appointment-booking.md
   - ../decisions/db-procedures-for-financial-invariants.md
 generated: { by: antigravity/gemini-flash, at: 2026-10-27T05:07:00Z }
+verified: { by: antigravity/gemini-flash, at: 2026-11-16T08:33:00Z }
 ---
 
 # Medical Service Pricing Flow

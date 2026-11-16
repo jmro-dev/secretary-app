@@ -72,10 +72,11 @@ class PendingBookingRepository {
 
     async findActiveByPatient(patientId, conn = this.pool) {
         const query = `
-            SELECT *
-            FROM whatsapp_pending_bookings
+            SELECT wb.*, d.full_name AS doctor_name
+            FROM whatsapp_pending_bookings wb
+            LEFT JOIN doctors d ON d.id = wb.doctor_id
             WHERE patient_id = ? AND status IN (${ACTIVE_STATUSES_SQL})
-            ORDER BY created_at DESC
+            ORDER BY wb.created_at DESC
             LIMIT 1
         `;
         const rows = await conn.query(query, [patientId, ...ACTIVE_STATUSES]);
