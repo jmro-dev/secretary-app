@@ -3,7 +3,7 @@ const systemSettingsRepository = require('../../repositories/system/systemSettin
 const appointmentRepository = require('../../repositories/appointments/appointmentRepository');
 const whatsappRepository = require('../../repositories/communication/whatsappRepository');
 const whatsappRetryQueue = require('./whatsappRetryQueue');
-const whatsappAiBookingService = require('./whatsappAiBookingService');
+const aiMicroserviceClient = require('./aiMicroserviceClient');
 const { formatDateDisplay, formatTimeDisplay } = require('../../utils/core/dateUtils');
 
 const getMetaCredentials = async () => {
@@ -71,6 +71,28 @@ const normalizePhoneForWhatsapp = (phone) => {
  */
 const sendMessageDirect = async (to, message, patientId = null) => {
     const formattedRecipient = normalizePhoneForWhatsapp(to);
+
+    // Guarda de Seguridad: Modo Dry-Run / Desarrollo
+    // Evita terminantemente enviar mensajes a teléfonos de pacientes reales fuera de producción.
+    // Excepción controlada: WHATSAPP_DEV_SELF_TEST=true permite enviar al teléfono configurado en WHATSAPP_SELF_TEST_PHONE
+    const isSelfTestAllowed = process.env.WHATSAPP_DEV_SELF_TEST === 'true' &&
+        process.env.WHATSAPP_SELF_TEST_PHONE &&
+        normalizePhoneForWhatsapp(process.env.WHATSAPP_SELF_TEST_PHONE) === formattedRecipient;
+
+    const isDryRun = (process.env.WHATSAPP_DRY_RUN === 'true' || (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test')) && !isSelfTestAllowed;
+    if (isDryRun) {
+        console.log(`🛡️ [WhatsApp DRY-RUN / DEV] Mensaje interceptado para: ${formattedRecipient} (NO enviado al teléfono real)`);
+        console.log(`   Texto: "${message.substring(0, 100)}${message.length > 100 ? '...' : ''}"`);
+
+        if (patientId) {
+            await whatsappRepository.createMessage(patientId, 'outbound', message, null, 'simulated');
+        } else {
+            await whatsappRepository.createMessage(null, 'outbound', message, null, 'simulated', to);
+        }
+
+        return { success: true, simulated: true, recipient: formattedRecipient };
+    }
+
     const bridgeUrl = process.env.WHATSAPP_BRIDGE_URL || 'http://127.0.0.1:8090/api/send';
 
     try {
@@ -116,7 +138,7 @@ const sendMessageDirect = async (to, message, patientId = null) => {
         }
 
         const detailMsg = error.response?.data || error.message || 'WhatsApp Bridge error';
-        throw new Error(`No se pudo enviar el mensaje por WhatsApp: ${detailMsg}`);
+        throw new Error(`No se pudo enviar el mensaje por WhatsApp: ${detailMsg}`, { cause: error });
     }
 };
 
@@ -321,15 +343,41 @@ const refreshBridge = async () => {
     }
 };
 
+// Cola secuencial de promesas por teléfono para evitar race conditions y solapamiento de IA
+const phoneTaskQueues = new Map();
+
+function enqueuePhoneTask(phone, taskFn) {
+    const currentQueue = phoneTaskQueues.get(phone) || Promise.resolve();
+    const nextQueue = currentQueue
+        .then(() => taskFn())
+        .catch(err => {
+            console.error('[WhatsApp Queue Error]:', phone, err.message);
+        })
+        .finally(() => {
+            if (phoneTaskQueues.get(phone) === nextQueue) {
+                phoneTaskQueues.delete(phone);
+            }
+        });
+
+    phoneTaskQueues.set(phone, nextQueue);
+    return nextQueue;
+}
+
 const handleWebhook = async (sender, message, isFromMe) => {
     const phone = sender.split('@')[0];
     const patientId = await whatsappRepository.findPatientByPhone(phone);
     const direction = isFromMe ? 'outbound' : 'inbound';
     await whatsappRepository.createMessage(patientId, direction, message, null, 'delivered', patientId ? null : phone);
 
-    if (process.env.WHATSAPP_AI_AUTO_BOOKING_ENABLED === 'true' && !isFromMe && patientId) {
-        whatsappAiBookingService.processInboundMessage({ sender, message, patientId, phone })
-            .catch(err => console.error('[WhatsApp AI Booking Error]:', err.message));
+    const allowSelfTest = process.env.WHATSAPP_DEV_SELF_TEST === 'true' && process.env.NODE_ENV !== 'production';
+    const shouldProcessAi = process.env.WHATSAPP_AI_AUTO_BOOKING_ENABLED === 'true' && (!isFromMe || allowSelfTest) && patientId;
+
+    if (shouldProcessAi) {
+        console.log(`[WhatsApp Webhook] Enqueueing AI inbound task for phone: ${phone} (patient: ${patientId})`);
+        enqueuePhoneTask(phone, async () => {
+            console.log(`[WhatsApp Webhook] Processing AI task for phone: ${phone}...`);
+            await aiMicroserviceClient.processInboundMessage({ sender, message, patientId, phone });
+        });
     }
 };
 
@@ -387,3 +435,125 @@ module.exports = {
     getBroadcastPreview,
     broadcastDirect
 };
+
+/**
+ * Sends a file / media (PDF, image, audio, voice note) via the WhatsApp bridge.
+ */
+const sendFileDirect = async (to, fileBuffer, filename, caption = '', mediaType = 'auto', patientId = null) => {
+    const formattedRecipient = normalizePhoneForWhatsapp(to);
+    const bridgeBase = (process.env.WHATSAPP_BRIDGE_STATUS_URL || 'http://127.0.0.1:8090/api/status').replace('/api/status', '');
+    const bridgeUrl = `${bridgeBase}/api/send-file`;
+
+    const FormData = require('form-data');
+    const form = new FormData();
+    form.append('recipient', formattedRecipient);
+    if (caption) form.append('caption', caption);
+    if (mediaType) form.append('type', mediaType);
+    form.append('file', fileBuffer, { filename });
+
+    try {
+        console.log(`[WhatsApp Bridge] Sending file '${filename}' to: ${formattedRecipient}`);
+        const response = await axios.post(bridgeUrl, form, {
+            headers: form.getHeaders(),
+            timeout: 30000
+        });
+
+        const logBody = `[Archivo adjunto: ${filename}] ${caption}`.trim();
+        if (patientId) {
+            await whatsappRepository.createMessage(patientId, 'outbound', logBody, null, 'sent');
+        } else {
+            await whatsappRepository.createMessage(null, 'outbound', logBody, null, 'sent', to);
+        }
+
+        return response.data;
+    } catch (error) {
+        console.error('[WhatsApp Bridge] Error sending file:', error.response?.data || error.message);
+        throw error;
+    }
+};
+
+/**
+ * Edits a previously sent message in WhatsApp.
+ */
+const editMessageDirect = async (messageId, newText, chat = '') => {
+    const bridgeBase = (process.env.WHATSAPP_BRIDGE_STATUS_URL || 'http://127.0.0.1:8090/api/status').replace('/api/status', '');
+    const bridgeUrl = `${bridgeBase}/api/edit`;
+
+    const payload = { id: messageId, text: newText };
+    if (chat) payload.chat = normalizePhoneForWhatsapp(chat);
+
+    try {
+        const response = await axios.post(bridgeUrl, payload, { timeout: 10000 });
+        return response.data;
+    } catch (error) {
+        console.error('[WhatsApp Bridge] Error editing message:', error.response?.data || error.message);
+        throw error;
+    }
+};
+
+/**
+ * Revokes / deletes a message for everyone in WhatsApp.
+ */
+const revokeMessageDirect = async (messageId, chat = '') => {
+    const bridgeBase = (process.env.WHATSAPP_BRIDGE_STATUS_URL || 'http://127.0.0.1:8090/api/status').replace('/api/status', '');
+    const bridgeUrl = `${bridgeBase}/api/revoke`;
+
+    const payload = { id: messageId };
+    if (chat) payload.chat = normalizePhoneForWhatsapp(chat);
+
+    try {
+        const response = await axios.post(bridgeUrl, payload, { timeout: 10000 });
+        return response.data;
+    } catch (error) {
+        console.error('[WhatsApp Bridge] Error revoking message:', error.response?.data || error.message);
+        throw error;
+    }
+};
+
+/**
+ * Retrieves the synchronized contacts from the connected phone.
+ */
+const getBridgeContacts = async (query = '', limit = 50) => {
+    const bridgeBase = (process.env.WHATSAPP_BRIDGE_STATUS_URL || 'http://127.0.0.1:8090/api/status').replace('/api/status', '');
+    const bridgeUrl = `${bridgeBase}/api/contacts`;
+
+    try {
+        const response = await axios.get(bridgeUrl, { timeout: 10000 });
+        const list = response.data?.contacts || [];
+        if (!query) return list.slice(0, limit);
+        const q = query.toLowerCase();
+        return list.filter(c =>
+            (c.fullName || '').toLowerCase().includes(q) ||
+            (c.pushName || '').toLowerCase().includes(q) ||
+            (c.phone || '').includes(q)
+        ).slice(0, limit);
+    } catch (error) {
+        console.error('[WhatsApp Bridge] Error fetching contacts:', error.response?.data || error.message);
+        throw error;
+    }
+};
+
+/**
+ * Forces on-demand chat synchronization from the phone.
+ */
+const syncChatDirect = async (phone, count = 50) => {
+    const bridgeBase = (process.env.WHATSAPP_BRIDGE_STATUS_URL || 'http://127.0.0.1:8090/api/status').replace('/api/status', '');
+    const bridgeUrl = `${bridgeBase}/api/sync`;
+
+    try {
+        const response = await axios.post(bridgeUrl, {
+            phone: normalizePhoneForWhatsapp(phone),
+            count: Number(count)
+        }, { timeout: 15000 });
+        return response.data;
+    } catch (error) {
+        console.error('[WhatsApp Bridge] Error syncing chat:', error.response?.data || error.message);
+        throw error;
+    }
+};
+
+module.exports.sendFileDirect = sendFileDirect;
+module.exports.editMessageDirect = editMessageDirect;
+module.exports.revokeMessageDirect = revokeMessageDirect;
+module.exports.getBridgeContacts = getBridgeContacts;
+module.exports.syncChatDirect = syncChatDirect;
