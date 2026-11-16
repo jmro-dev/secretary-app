@@ -4,14 +4,14 @@ type: entity
 responsibility: Express MVC backend providing REST APIs, authentication, and database orchestration.
 sources:
   - server/app.js
-synced: cffa5a1b6823e7e742060829f33511f480b72f3b
-sources_key: d122fbdae24c
+synced: 33593f0d
+sources_key: 46c4b440c978
 related:
   - ../architecture.md
   - ./client.md
   - ./whatsapp-bridge.md
 generated: { by: antigravity/gemini-flash, at: 2026-10-27T05:07:00Z }
-verified: { by: antigravity/gemini-flash, at: 2026-11-14T23:18:00Z }
+verified: { by: antigravity/gemini-flash, at: 2026-11-16T09:20:00Z }
 ---
 
 # Server Application
@@ -32,4 +32,4 @@ The server is an Express.js backend providing REST endpoints for administrative,
   - Financial operations and accounts at `/api/finances` ([server/app.js:127](../../server/app.js#L127)).
   - WhatsApp webhook and interaction endpoints at `/api/whatsapp` ([server/app.js:121](../../server/app.js#L121)).
 - **Centralized Error Handling**:
-  - Global Express error handling middleware mounted at the end of the pipeline ([server/app.js:148](../../server/app.js#L148)).
+  - Global Express error handling middleware mounted at the end of the pipeline ([server/app.js:149](../../server/app.js#L149)).
