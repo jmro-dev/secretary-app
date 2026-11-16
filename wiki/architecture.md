@@ -6,10 +6,10 @@ sources:
   - server/app.js
   - client/src/main.jsx
   - whatsapp-bridge-go/main.go
-synced: cffa5a1b6823e7e742060829f33511f480b72f3b
+synced: 48185ad7
 sources_key: 3b98bd4a9027
 generated: { by: antigravity/gemini-flash, at: 2026-10-27T05:07:00Z }
-verified: { by: antigravity/gemini-flash, at: 2026-11-14T23:18:00Z }
+verified: { by: antigravity/gemini-flash, at: 2026-11-16T08:33:00Z }
 ---
 
 # System Architecture
@@ -42,4 +42,5 @@ Secretary App is a medical office and clinical management platform designed to c
 - **Appointment Scheduling**: Managed via [flows/appointment-booking.md](./flows/appointment-booking.md).
 - **Tariffs and Pricing**: Centralized in the database engine, detailed in [flows/price-calculation.md](./flows/price-calculation.md).
 - **Financial Balances & Debt**: Managed according to [concepts/debt-lifecycle.md](./concepts/debt-lifecycle.md).
+- **WhatsApp AI Sidecar**: Delegated clinical triage and tool calling, documented in [flows/whatsapp-ai-assistance.md](./flows/whatsapp-ai-assistance.md).
 - **Database Encapsulation**: Rationale documented in [decisions/db-procedures-for-financial-invariants.md](./decisions/db-procedures-for-financial-invariants.md).

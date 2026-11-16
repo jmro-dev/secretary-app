@@ -18,6 +18,7 @@ okf_version: "0.2"
 
 - [Appointment Booking Flow](flows/appointment-booking.md): End-to-end appointment creation, slot concurrency validation, and transaction creation.
 - [Medical Service Pricing Flow](flows/price-calculation.md): Pricing resolution through doctor tariffs, institution coverage, and patient copays.
+- [WhatsApp AI Assistance Flow](flows/whatsapp-ai-assistance.md): Inbound WhatsApp AI handling, dynamic context enrichment, sidecar coordination, and tool execution.
 
 ## Concepts
 

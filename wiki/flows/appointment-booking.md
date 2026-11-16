@@ -4,14 +4,16 @@ type: flow
 responsibility: End-to-end appointment creation, slot concurrency validation, and transaction creation.
 sources:
   - server/01-schema.sql
-synced: d34c1014
-sources_key: e6f9093915b4
+synced: 48185ad7
+sources_key: af6461165445
 related:
   - ../architecture.md
   - ./price-calculation.md
+  - ./whatsapp-ai-assistance.md
   - ../concepts/debt-lifecycle.md
   - ../decisions/db-procedures-for-financial-invariants.md
 generated: { by: antigravity/gemini-flash, at: 2026-10-27T05:07:00Z }
+verified: { by: antigravity/gemini-flash, at: 2026-11-16T08:33:00Z }
 ---
 
 # Appointment Booking Flow

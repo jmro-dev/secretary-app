@@ -4,13 +4,14 @@ type: decision
 responsibility: Why critical financial calculations and slot reservations run in MySQL stored routines.
 sources:
   - server/01-schema.sql
-synced: d34c1014
-sources_key: e6f9093915b4
+synced: 48185ad7
+sources_key: af6461165445
 related:
   - ../architecture.md
   - ../flows/appointment-booking.md
   - ../flows/price-calculation.md
 generated: { by: antigravity/gemini-flash, at: 2026-10-27T05:07:00Z }
+verified: { by: antigravity/gemini-flash, at: 2026-11-16T08:33:00Z }
 ---
 
 # Database Stored Procedures for Financial and Booking Invariants
