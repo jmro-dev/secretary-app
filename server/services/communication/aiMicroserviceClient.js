@@ -284,7 +284,54 @@ async function processInboundMessage({ sender: _sender, message, patientId, phon
     }
 }
 
+/**
+ * Consulta la disponibilidad del microservicio de IA según contrato OpenAPI (/health).
+ * Retorna { status: 'ok', uptime: number } si está disponible, o null si falla.
+ */
+async function checkHealth() {
+    try {
+        const res = await axios.get(`${AI_SERVICE_URL}/health`, { timeout: 3000 });
+        if (res.status === 200 && res.data?.status === 'ok') {
+            return res.data;
+        }
+        return null;
+    } catch (_err) {
+        return null;
+    }
+}
+
+/**
+ * Sincroniza un documento de conocimiento con el microservicio RAG según contrato OpenAPI (/api/v1/knowledge/documents).
+ * Retorna { status: 'indexed', documentId, chunksIndexed } o null si falla.
+ */
+async function syncKnowledgeDocument({ tenantId = TENANT_ID, documentId, title, content }) {
+    if (!documentId || !title || !content) {
+        return null;
+    }
+    try {
+        const payload = {
+            tenantId,
+            documentId,
+            title,
+            content
+        };
+        const res = await axios.post(`${AI_SERVICE_URL}/api/v1/knowledge/documents`, payload, {
+            timeout: 10000,
+            headers: { 'Content-Type': 'application/json' }
+        });
+        if (res.status === 201 || res.status === 200) {
+            return res.data;
+        }
+        return null;
+    } catch (err) {
+        console.warn('[AI Microservice] Error sincronizando documento RAG:', documentId, err.response?.data || err.message);
+        return null;
+    }
+}
+
 module.exports = {
     processInboundMessage,
-    resolveDoctorForPatient
+    resolveDoctorForPatient,
+    checkHealth,
+    syncKnowledgeDocument
 };
