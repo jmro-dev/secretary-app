@@ -324,7 +324,7 @@ async function syncKnowledgeDocument({ tenantId = TENANT_ID, documentId, title, 
         }
         return null;
     } catch (err) {
-        console.warn(`[AI Microservice] Error sincronizando documento RAG ${documentId}:`, err.response?.data || err.message);
+        console.warn('[AI Microservice] Error sincronizando documento RAG:', documentId, err.response?.data || err.message);
         return null;
     }
 }

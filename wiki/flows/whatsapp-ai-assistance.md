@@ -7,7 +7,7 @@ sources:
   - server/services/communication/aiConfigService.js
   - server/services/communication/whatsappService.js
 synced: eaed1573
-sources_key: cd262346ec2f
+sources_key: 2158446cae41
 related:
   - ../architecture.md
   - ./appointment-booking.md
