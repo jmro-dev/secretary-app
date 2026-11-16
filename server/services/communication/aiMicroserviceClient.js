@@ -7,6 +7,7 @@ const pendingBookingRepository = require('../../repositories/communication/pendi
 const availabilitySearchService = require('../appointments/availabilitySearchService');
 const whatsappRepository = require('../../repositories/communication/whatsappRepository');
 const aiConfigService = require('./aiConfigService');
+const { formatDateOnlySQL } = require('../../utils/core/dateUtils');
 
 const AI_SERVICE_URL = process.env.EDI3_AI_SERVICE_URL || 'http://127.0.0.1:8000';
 const TENANT_ID = process.env.EDI3_TENANT_ID || 'cima-salud';
@@ -189,7 +190,7 @@ async function processInboundMessage({ sender: _sender, message, patientId, phon
                     })) : []
                 };
             } else if (tool === 'getDoctorAvailability' && matchedDoc) {
-                const searchDate = params?.date ? new Date(params.date) : new Date();
+                const searchDate = params?.date ? formatDateOnlySQL(params.date) : new Date();
                 const availability = await availabilitySearchService.getNextFreeSlot({
                     doctor_id: matchedDoc.id,
                     start_date: searchDate,
@@ -227,6 +228,7 @@ async function processInboundMessage({ sender: _sender, message, patientId, phon
         }
 
         // 1. Si el microservicio requiere crear una pre-reserva de turno
+        let pendingBookingCreated = false;
         if (aiResult.actionRequired === 'CREATE_PENDING_BOOKING') {
             const doctorId = await resolveBookingDoctor(aiResult, patientId, doctors);
             if (!doctorId) {
@@ -252,13 +254,24 @@ async function processInboundMessage({ sender: _sender, message, patientId, phon
                         requested_slot_date: dayGroup.date,
                         requested_slot_time: firstSlot.time
                     });
+                    pendingBookingCreated = true;
                     console.log(`[AI Microservice] ✅ Pending booking #${pendingId} created for patient ${patientId}`);
                 }
             }
         }
 
         // 2. Si el microservicio generó una respuesta sugerida, despacharla al paciente
-        if (aiResult.suggestedReply && aiResult.suggestedReply.trim()) {
+        // Si se requería crear una pre-reserva pero no hubo slot disponible ni médico resoluble,
+        // no se envía una respuesta que afirme que el turno quedó agendado.
+        if (aiResult.actionRequired === 'CREATE_PENDING_BOOKING' && !pendingBookingCreated) {
+            console.warn('[AI Microservice] Pre-reserva requerida pero no creada; derivando a secretaría humana sin confirmar falsamente.', { patientId });
+            const whatsappService = require('./whatsappService');
+            await whatsappService.sendMessageDirect(
+                phone,
+                'Hemos recibido tu solicitud de turno. Una persona de secretaría revisará la agenda disponible y se comunicará a la brevedad para confirmar la opción.',
+                patientId
+            );
+        } else if (aiResult.suggestedReply && aiResult.suggestedReply.trim()) {
             const whatsappService = require('./whatsappService');
             await whatsappService.sendMessageDirect(phone, aiResult.suggestedReply.trim(), patientId);
         }
