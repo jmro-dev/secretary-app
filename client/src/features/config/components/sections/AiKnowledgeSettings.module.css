@@ -60,10 +60,18 @@
     margin-top: 1rem;
 }
 
+.AiKnowledgeSettings__headerAction {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
 .AiKnowledgeSettings__desc {
     font-size: 0.9rem;
     color: var(--text-secondary, #64748b);
-    margin-bottom: 1.25rem;
+    margin: 0;
     line-height: 1.5;
 }
 
@@ -114,6 +122,41 @@
     flex-direction: column;
 }
 
+.AiKnowledgeSettings__badgeCreating {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.8rem;
+    margin-bottom: 1rem;
+    border-radius: var(--radius-md, 6px);
+    background-color: var(--primary-light, #eff6ff);
+    color: var(--primary, #2563eb);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.AiKnowledgeSettings__editorActions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.AiKnowledgeSettings__rightActions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-left: auto;
+}
+
+.AiKnowledgeSettings__empty {
+    font-size: 0.85rem;
+    color: var(--text-secondary, #94a3b8);
+    font-style: italic;
+    padding: 1rem 0;
+}
+
 @media (width <= 768px) {
     .AiKnowledgeSettings__row {
         grid-template-columns: 1fr;
@@ -123,10 +166,25 @@
         grid-template-columns: 1fr;
     }
 
+    .AiKnowledgeSettings__headerAction {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
     .AiKnowledgeSettings__docList {
         border-right: none;
         border-bottom: 1px solid var(--border-color, #e2e8f0);
         padding-right: 0;
         padding-bottom: 1rem;
+    }
+
+    .AiKnowledgeSettings__editorActions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .AiKnowledgeSettings__rightActions {
+        margin-left: 0;
+        justify-content: flex-end;
     }
 }
