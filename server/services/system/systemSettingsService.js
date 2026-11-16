@@ -1,4 +1,5 @@
 const systemSettingsRepository = require('../../repositories/system/systemSettingsRepository');
+const aiConfigService = require('../communication/aiConfigService');
 // Remote access service has been deprecated/removed
 // const { refreshRemoteAccess, initRemoteAccess } = require('../../utils/remoteAccessService');
 
@@ -36,6 +37,11 @@ class SystemSettingsService {
 
     async updateSetting(key, value) {
         await systemSettingsRepository.upsert(key, value);
+
+        // La configuración que alimenta al microservicio de IA se cachea: invalidar.
+        if (aiConfigService.AI_SETTING_KEYS.includes(key)) {
+            aiConfigService.invalidateCache();
+        }
 
         // Side effects
         if (key === 'remote_access_method') {

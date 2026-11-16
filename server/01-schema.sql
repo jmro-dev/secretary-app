@@ -2793,3 +2793,18 @@ VALUES (9,'admin','$2b$10$B9MeFi1UjmJJ1SpW7HJw6e4vZk95E7PW9U8V5yW/53noasr6xIpJC'
 ON DUPLICATE KEY UPDATE `id`=`id`;
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
+
+-- Tabla para almacenar normativas institucionales y RAG dinamico
+CREATE TABLE IF NOT EXISTS `clinic_knowledge_documents` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `tenant_id` VARCHAR(64) NOT NULL DEFAULT 'cima-salud',
+  `document_id` VARCHAR(64) NOT NULL,
+  `title` VARCHAR(200) NOT NULL,
+  `content` MEDIUMTEXT NOT NULL,
+  `category` VARCHAR(50) DEFAULT 'general',
+  `is_active` TINYINT(1) DEFAULT 1,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY `uk_tenant_doc` (`tenant_id`, `document_id`),
+  INDEX `idx_tenant_active` (`tenant_id`, `is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

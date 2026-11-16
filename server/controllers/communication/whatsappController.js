@@ -4,7 +4,7 @@ const pendingBookingService = require('../../services/communication/pendingBooki
 const patientRepository = require('../../repositories/user/patientRepository');
 const doctorRepository = require('../../repositories/user/doctorRepository');
 const availabilitySearchService = require('../../services/appointments/availabilitySearchService');
-const whatsappAiBookingService = require('../../services/communication/whatsappAiBookingService');
+const whatsappAiBookingService = require('../../services/communication/aiMicroserviceClient');
 
 /**
  * ECC-Pattern: WhatsAppController
@@ -91,108 +91,21 @@ const getAiSuggestion = async (req, res) => {
             return res.json({ success: true, suggestion: 'No hay mensajes previos para generar una sugerencia.' });
         }
 
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) {
-            return res.status(503).json({ error: 'Configuración de IA incompleta (Falta GEMINI_API_KEY).' });
-        }
+        const AI_SERVICE_URL = process.env.EDI3_AI_SERVICE_URL || 'http://127.0.0.1:8000';
+        const TENANT_ID = process.env.EDI3_TENANT_ID || 'cima-salud';
 
-        let patientName = '';
-        let doctorName = 'el profesional asignado';
-        let freeSlotsText = 'Sin turnos disponibles próximos.';
-        let prescriptionInfo = 'Valor receta: $15.000, demora 48 hs hábiles, alias: bici.soja.risa';
-        let suggestedSlot = null;
+        const lastInbound = (history || []).filter(m => m.direction === 'inbound').pop();
+        const queryMessage = lastInbound ? lastInbound.body : lastMessages;
 
-        try {
-            let patient = null;
-            if (patientId) {
-                patient = await patientRepository.findById(patientId);
-            }
-            if (patient) {
-                patientName = patient.first_name || patient.full_name || '';
-            }
+        const aiResponse = await axios.post(`${AI_SERVICE_URL}/api/v1/patient-message`, {
+            tenantId: TENANT_ID,
+            patientId: Number(patientId || 1),
+            phone: phone ? (phone.startsWith('+') ? phone : `+${phone}`) : '+5492494000000',
+            message: queryMessage
+        }, { timeout: 10000, headers: { 'Content-Type': 'application/json' } });
 
-            const doctorId = await whatsappAiBookingService.resolveDoctorForPatient(patientId);
-            if (doctorId) {
-                const doctor = await doctorRepository.findById(doctorId);
-                if (doctor) {
-                    doctorName = `Dr/a. ${doctor.full_name} (${doctor.specialty || 'Profesional'})`;
-                    if (doctor.prescription_price || doctor.alias) {
-                        const price = Number(doctor.prescription_price || 15000).toLocaleString('es-AR');
-                        const alias = doctor.alias || 'bici.soja.risa';
-                        prescriptionInfo = `Valor receta: $${price}, demora 48 hs hábiles, alias: ${alias}`;
-                    }
-                }
-
-                const availability = await availabilitySearchService.getNextFreeSlot({
-                    doctor_id: doctorId,
-                    start_date: new Date(),
-                    include_out_of_hours: 'false'
-                });
-
-                if (availability?.results?.length > 0) {
-                    const firstDay = availability.results[0];
-                    const firstSlot = firstDay?.slots?.[0];
-                    if (firstDay && firstSlot) {
-                        suggestedSlot = {
-                            date: firstDay.date,
-                            time: firstSlot.time,
-                            dayName: firstDay.dayName,
-                            doctorId: doctorId,
-                            doctorName: doctor?.full_name || 'Profesional'
-                        };
-                    }
-
-                    const formatted = [];
-                    for (const day of availability.results.slice(0, 3)) {
-                        const times = day.slots.slice(0, 3).map(s => s.time).join(', ');
-                        formatted.push(`${day.dayName || day.date}: ${times} hs`);
-                    }
-                    freeSlotsText = formatted.join(' | ');
-                }
-            }
-        } catch (ctxErr) {
-            console.warn('[WhatsApp getAiSuggestion] Could not build full context:', ctxErr.message);
-        }
-
-        const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-        const prompt = `Actuá como la secretaría de Cima Salud Tandil.
-Paciente: ${patientName || 'Paciente'}
-Profesional asignado: ${doctorName}
-Turnos libres reales en agenda: ${freeSlotsText}
-Información de recetas: ${prescriptionInfo}
-
-Historial de WhatsApp:
-${lastMessages}
-
-Instrucciones:
-- Redactá una respuesta breve, educada, empática y profesional para la secretaría (máximo 35 palabras).
-- Si el paciente consulta por turnos: ofrecele amablemente el próximo turno disponible real de la agenda. Si no hay lugar para el día pedido, aclará que no hay disponibilidad para esa fecha y ofrecele el primer turno disponible real.
-- Si el paciente consulta por recetas o medicación: brindá la información de recetas (demora 48 hs, arancel y alias) y pedile el comprobante de pago.
-- NUNCA uses comodines entre corchetes como [Día], [Horario] o [Nombre]. Usa los datos reales provistos.
-- Respondé ÚNICAMENTE con el texto del mensaje que la secretaría debe enviarle al paciente, sin comillas ni notas adicionales.
-
-Respuesta:`;
-
-        const response = await axios.post(url, {
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-                maxOutputTokens: 250,
-                temperature: 0.7
-            }
-        }, {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 30000
-        });
-
-        const data = response.data;
-        const suggestion = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-        if (!suggestion) {
-            return res.status(500).json({ error: 'No se obtuvo sugerencia de la IA' });
-        }
-
-        res.json({ success: true, suggestion, suggestedSlot });
+        const suggestion = aiResponse.data?.suggestedReply || 'No se pudo generar una sugerencia en este momento.';
+        res.json({ success: true, suggestion });
     } catch (error) {
         console.error('[WhatsApp getAiSuggestion Error]:', error.response?.data || error.message);
         const status = error.response?.status || 500;
@@ -350,3 +263,87 @@ module.exports = {
     receiveWebhook, getPatientHistory, getAiSuggestion, getRecentConversations, getBridgeStatus, getBridgeHealth, logoutBridge, refreshBridge, deleteConversation,
     listPending, acceptPending, suggestAlternative, rejectPending
 };
+
+const sendDirectFile = async (req, res) => {
+    try {
+        const { to, caption, mediaType, patientId } = req.body;
+        const file = req.file;
+
+        if (!to || !file) {
+            return res.status(400).json({ error: 'Número de teléfono y archivo son requeridos.' });
+        }
+
+        const result = await whatsappService.sendFileDirect(
+            to,
+            file.buffer,
+            file.originalname,
+            caption || '',
+            mediaType || 'auto',
+            patientId ? Number(patientId) : null
+        );
+
+        res.json({ success: true, result });
+    } catch (error) {
+        console.error('[Send File Error]:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+const editDirectMessage = async (req, res) => {
+    try {
+        const { messageId, newText, chat } = req.body;
+        if (!messageId || !newText) {
+            return res.status(400).json({ error: 'messageId y newText son requeridos.' });
+        }
+        const result = await whatsappService.editMessageDirect(messageId, newText, chat);
+        res.json({ success: true, result });
+    } catch (error) {
+        console.error('[Edit Message Error]:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+const revokeDirectMessage = async (req, res) => {
+    try {
+        const { messageId, chat } = req.body;
+        if (!messageId) {
+            return res.status(400).json({ error: 'messageId es requerido.' });
+        }
+        const result = await whatsappService.revokeMessageDirect(messageId, chat);
+        res.json({ success: true, result });
+    } catch (error) {
+        console.error('[Revoke Message Error]:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+const getPhoneContacts = async (req, res) => {
+    try {
+        const { query, limit } = req.query;
+        const contacts = await whatsappService.getBridgeContacts(query, limit ? Number(limit) : 50);
+        res.json({ success: true, contacts, count: contacts.length });
+    } catch (error) {
+        console.error('[Get Contacts Error]:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+const syncPhoneChat = async (req, res) => {
+    try {
+        const { phone, count } = req.body;
+        if (!phone) {
+            return res.status(400).json({ error: 'Número de teléfono es requerido.' });
+        }
+        const result = await whatsappService.syncChatDirect(phone, count || 50);
+        res.json({ success: true, result });
+    } catch (error) {
+        console.error('[Sync Chat Error]:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+module.exports.sendDirectFile = sendDirectFile;
+module.exports.editDirectMessage = editDirectMessage;
+module.exports.revokeDirectMessage = revokeDirectMessage;
+module.exports.getPhoneContacts = getPhoneContacts;
+module.exports.syncPhoneChat = syncPhoneChat;

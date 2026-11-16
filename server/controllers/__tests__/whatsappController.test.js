@@ -10,7 +10,7 @@ jest.mock('../../repositories/communication/pendingBookingRepository');
 jest.mock('../../services/appointments/bookingService');
 jest.mock('../../repositories/user/patientRepository');
 jest.mock('../../repositories/user/doctorRepository');
-jest.mock('../../services/communication/whatsappAiBookingService');
+jest.mock('../../services/communication/aiMicroserviceClient');
 jest.mock('../../services/appointments/availabilitySearchService');
 jest.mock('../../repositories/system/systemSettingsRepository', () => ({
     findManyByKeys: jest.fn(),
@@ -23,11 +23,16 @@ jest.mock('../../db', () => ({
 const axios = require('axios');
 const whatsappController = require('../communication/whatsappController');
 const whatsappService = require('../../services/communication/whatsappService');
+whatsappService.sendFileDirect = jest.fn();
+whatsappService.editMessageDirect = jest.fn();
+whatsappService.revokeMessageDirect = jest.fn();
+whatsappService.getBridgeContacts = jest.fn();
+whatsappService.syncChatDirect = jest.fn();
 const pendingBookingRepository = require('../../repositories/communication/pendingBookingRepository');
 const bookingService = require('../../services/appointments/bookingService');
 const patientRepository = require('../../repositories/user/patientRepository');
 const doctorRepository = require('../../repositories/user/doctorRepository');
-const whatsappAiBookingService = require('../../services/communication/whatsappAiBookingService');
+const whatsappAiBookingService = require('../../services/communication/aiMicroserviceClient');
 const availabilitySearchService = require('../../services/appointments/availabilitySearchService');
 const systemSettingsRepository = require('../../repositories/system/systemSettingsRepository');
 
@@ -239,16 +244,6 @@ describe('WhatsAppController - pending bookings', () => {
     });
 
     describe('getAiSuggestion', () => {
-        const origKey = process.env.GEMINI_API_KEY;
-
-        beforeEach(() => {
-            process.env.GEMINI_API_KEY = 'test-gemini-key';
-        });
-
-        afterEach(() => {
-            process.env.GEMINI_API_KEY = origKey;
-        });
-
         it('returns fallback message when there are no previous messages', async () => {
             whatsappService.getPatientHistory.mockResolvedValue([]);
             req.body = { patientId: 5 };
@@ -262,22 +257,7 @@ describe('WhatsAppController - pending bookings', () => {
             });
         });
 
-        it('returns 503 when GEMINI_API_KEY is not configured', async () => {
-            delete process.env.GEMINI_API_KEY;
-            whatsappService.getPatientHistory.mockResolvedValue([
-                { direction: 'inbound', body: 'Hola' }
-            ]);
-            req.body = { patientId: 5 };
-
-            await whatsappController.getAiSuggestion(req, res);
-
-            expect(res.statusCode).toBe(503);
-            expect(res._getJSONData()).toEqual({
-                error: 'Configuración de IA incompleta (Falta GEMINI_API_KEY).'
-            });
-        });
-
-        it('calls Gemini endpoint and returns AI suggestion text', async () => {
+        it('calls edi3-ai-production endpoint and returns AI suggestion text', async () => {
             whatsappService.getPatientHistory.mockResolvedValue([
                 { direction: 'inbound', body: 'Tienen turno para hoy?' },
                 { direction: 'outbound', body: 'Hola, con qué doctor?' },
@@ -287,13 +267,8 @@ describe('WhatsAppController - pending bookings', () => {
 
             axios.post.mockResolvedValue({
                 data: {
-                    candidates: [
-                        {
-                            content: {
-                                parts: [{ text: 'Hola! Para hoy no nos quedan turnos disponibles con el Dr. House.' }]
-                            }
-                        }
-                    ]
+                    intent: 'SOLICITUD_TURNO',
+                    suggestedReply: 'Hola! Para hoy no nos quedan turnos disponibles.'
                 }
             });
 
@@ -303,55 +278,121 @@ describe('WhatsAppController - pending bookings', () => {
             expect(res.statusCode).toBe(200);
             expect(res._getJSONData()).toEqual({
                 success: true,
-                suggestion: 'Hola! Para hoy no nos quedan turnos disponibles con el Dr. House.',
-                suggestedSlot: null
+                suggestion: 'Hola! Para hoy no nos quedan turnos disponibles.'
+            });
+        });
+    });
+
+    describe('Advanced Bridge Capabilities (Parity with System CLI)', () => {
+        describe('sendDirectFile', () => {
+            it('returns 400 when recipient or file is missing', async () => {
+                req.body = { to: '+5491112345678' };
+                // file missing
+                await whatsappController.sendDirectFile(req, res);
+                expect(res.statusCode).toBe(400);
+            });
+
+            it('calls sendFileDirect and returns success', async () => {
+                req.body = { to: '+5491112345678', caption: 'Estudio médico', patientId: '10' };
+                req.file = {
+                    buffer: Buffer.from('dummy data'),
+                    originalname: 'analisis.pdf'
+                };
+                whatsappService.sendFileDirect.mockResolvedValue({ status: 'sent', id: 'wamid.123' });
+
+                await whatsappController.sendDirectFile(req, res);
+
+                expect(whatsappService.sendFileDirect).toHaveBeenCalledWith(
+                    '+5491112345678',
+                    req.file.buffer,
+                    'analisis.pdf',
+                    'Estudio médico',
+                    'auto',
+                    10
+                );
+                expect(res.statusCode).toBe(200);
+                expect(res._getJSONData()).toEqual({
+                    success: true,
+                    result: { status: 'sent', id: 'wamid.123' }
+                });
             });
         });
 
-        it('returns suggestedSlot when doctor and free slots are found', async () => {
-            whatsappService.getPatientHistory.mockResolvedValue([
-                { direction: 'inbound', body: 'Tienen turno con el Dr. House?' }
-            ]);
-            req.body = { patientId: 5, phone: '+5491112345678' };
-
-            patientRepository.findById.mockResolvedValue({ id: 5, first_name: 'Juan' });
-            whatsappAiBookingService.resolveDoctorForPatient.mockResolvedValue(3);
-            doctorRepository.findById.mockResolvedValue({ id: 3, full_name: 'Dr. House' });
-            availabilitySearchService.getNextFreeSlot.mockResolvedValue({
-                results: [
-                    {
-                        date: '2026-10-30',
-                        dayName: 'viernes 30 de octubre',
-                        slots: [{ time: '16:00' }]
-                    }
-                ]
+        describe('editDirectMessage', () => {
+            it('returns 400 when messageId or newText is missing', async () => {
+                req.body = { messageId: 'msg-1' };
+                await whatsappController.editDirectMessage(req, res);
+                expect(res.statusCode).toBe(400);
             });
 
-            axios.post.mockResolvedValue({
-                data: {
-                    candidates: [
-                        {
-                            content: {
-                                parts: [{ text: 'Hola Juan! Tengo turno para el viernes 30 de octubre a las 16:00 hs con el Dr. House.' }]
-                            }
-                        }
-                    ]
-                }
+            it('calls editMessageDirect and returns success', async () => {
+                req.body = { messageId: 'msg-1', newText: 'Texto corregido', chat: '5491112345678' };
+                whatsappService.editMessageDirect.mockResolvedValue({ success: true, id: 'msg-1' });
+
+                await whatsappController.editDirectMessage(req, res);
+
+                expect(whatsappService.editMessageDirect).toHaveBeenCalledWith('msg-1', 'Texto corregido', '5491112345678');
+                expect(res.statusCode).toBe(200);
+                expect(res._getJSONData().success).toBe(true);
+            });
+        });
+
+        describe('revokeDirectMessage', () => {
+            it('returns 400 when messageId is missing', async () => {
+                req.body = {};
+                await whatsappController.revokeDirectMessage(req, res);
+                expect(res.statusCode).toBe(400);
             });
 
-            await whatsappController.getAiSuggestion(req, res);
+            it('calls revokeMessageDirect and returns success', async () => {
+                req.body = { messageId: 'msg-to-delete', chat: '5491112345678' };
+                whatsappService.revokeMessageDirect.mockResolvedValue({ success: true });
 
-            expect(res.statusCode).toBe(200);
-            expect(res._getJSONData()).toEqual({
-                success: true,
-                suggestion: 'Hola Juan! Tengo turno para el viernes 30 de octubre a las 16:00 hs con el Dr. House.',
-                suggestedSlot: {
-                    date: '2026-10-30',
-                    time: '16:00',
-                    dayName: 'viernes 30 de octubre',
-                    doctorId: 3,
-                    doctorName: 'Dr. House'
-                }
+                await whatsappController.revokeDirectMessage(req, res);
+
+                expect(whatsappService.revokeMessageDirect).toHaveBeenCalledWith('msg-to-delete', '5491112345678');
+                expect(res.statusCode).toBe(200);
+                expect(res._getJSONData().success).toBe(true);
+            });
+        });
+
+        describe('getPhoneContacts', () => {
+            it('calls getBridgeContacts with query and limit', async () => {
+                req.query = { query: 'Juan', limit: '20' };
+                const mockContacts = [{ phone: '5491112345678', fullName: 'Juan Perez' }];
+                whatsappService.getBridgeContacts.mockResolvedValue(mockContacts);
+
+                await whatsappController.getPhoneContacts(req, res);
+
+                expect(whatsappService.getBridgeContacts).toHaveBeenCalledWith('Juan', 20);
+                expect(res.statusCode).toBe(200);
+                expect(res._getJSONData()).toEqual({
+                    success: true,
+                    contacts: mockContacts,
+                    count: 1
+                });
+            });
+        });
+
+        describe('syncPhoneChat', () => {
+            it('returns 400 when phone is missing', async () => {
+                req.body = {};
+                await whatsappController.syncPhoneChat(req, res);
+                expect(res.statusCode).toBe(400);
+            });
+
+            it('calls syncChatDirect and returns success', async () => {
+                req.body = { phone: '5491112345678', count: 30 };
+                whatsappService.syncChatDirect.mockResolvedValue({ synced: 30 });
+
+                await whatsappController.syncPhoneChat(req, res);
+
+                expect(whatsappService.syncChatDirect).toHaveBeenCalledWith('5491112345678', 30);
+                expect(res.statusCode).toBe(200);
+                expect(res._getJSONData()).toEqual({
+                    success: true,
+                    result: { synced: 30 }
+                });
             });
         });
     });
