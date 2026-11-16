@@ -11,9 +11,12 @@ import shared from '@/styles/shared.module.css';
 export const AiKnowledgeSettings = ({ settings = {}, updateSetting }) => {
     const [documents, setDocuments] = useState([]);
     const [selectedDocId, setSelectedDocId] = useState('');
+    const [isCreatingNew, setIsCreatingNew] = useState(false);
+    const [newDocId, setNewDocId] = useState('');
     const [docDraft, setDocDraft] = useState({ title: '', content: '', category: 'general' });
     const [loadingDocs, setLoadingDocs] = useState(true);
     const [savingDoc, setSavingDoc] = useState(false);
+    const [deletingDoc, setDeletingDoc] = useState(false);
 
     // AI Settings locales
     const [role, setRole] = useState(settings.ai_system_role || '');
@@ -28,20 +31,27 @@ export const AiKnowledgeSettings = ({ settings = {}, updateSetting }) => {
         setRestrictedTerms(settings.ai_restricted_terms || '');
     }, [settings]);
 
-    const fetchDocuments = useCallback(async () => {
+    const fetchDocuments = useCallback(async (selectId = null) => {
         try {
             setLoadingDocs(true);
             const res = await api.get('/knowledge');
             if (res.data?.success) {
                 const docs = res.data.data;
                 setDocuments(docs);
-                if (docs.length > 0 && !selectedDocId) {
-                    setSelectedDocId(docs[0].document_id);
-                    setDocDraft({
-                        title: docs[0].title,
-                        content: docs[0].content,
-                        category: docs[0].category || 'general'
-                    });
+                const targetId = selectId || (docs.length > 0 ? docs[0].document_id : '');
+                if (targetId && !isCreatingNew) {
+                    setSelectedDocId(targetId);
+                    const selected = docs.find(d => d.document_id === targetId);
+                    if (selected) {
+                        setDocDraft({
+                            title: selected.title,
+                            content: selected.content,
+                            category: selected.category || 'general'
+                        });
+                    }
+                } else if (docs.length === 0 && !isCreatingNew) {
+                    setSelectedDocId('');
+                    setDocDraft({ title: '', content: '', category: 'general' });
                 }
             }
         } catch (err) {
@@ -50,13 +60,14 @@ export const AiKnowledgeSettings = ({ settings = {}, updateSetting }) => {
         } finally {
             setLoadingDocs(false);
         }
-    }, [selectedDocId]);
+    }, [isCreatingNew]);
 
     useEffect(() => {
         fetchDocuments();
     }, [fetchDocuments]);
 
     const handleSelectDoc = (docId) => {
+        setIsCreatingNew(false);
         setSelectedDocId(docId);
         const doc = documents.find(d => d.document_id === docId);
         if (doc) {
@@ -68,30 +79,72 @@ export const AiKnowledgeSettings = ({ settings = {}, updateSetting }) => {
         }
     };
 
+    const handleStartNewDoc = () => {
+        setIsCreatingNew(true);
+        setSelectedDocId('');
+        setNewDocId('');
+        setDocDraft({
+            title: '',
+            content: '',
+            category: 'general'
+        });
+    };
+
+    const handleCancelNewDoc = () => {
+        setIsCreatingNew(false);
+        if (documents.length > 0) {
+            handleSelectDoc(documents[0].document_id);
+        }
+    };
+
     const handleSaveDoc = async () => {
-        if (!selectedDocId || !docDraft.title || !docDraft.content) {
-            toast.error('Título y contenido son obligatorios');
+        const finalDocId = isCreatingNew ? newDocId.trim() : selectedDocId;
+
+        if (!finalDocId || !docDraft.title.trim() || !docDraft.content.trim()) {
+            toast.error('Identificador, título y contenido son obligatorios');
             return;
         }
 
         try {
             setSavingDoc(true);
             const res = await api.post('/knowledge', {
-                document_id: selectedDocId,
-                title: docDraft.title,
-                content: docDraft.content,
+                document_id: finalDocId,
+                title: docDraft.title.trim(),
+                content: docDraft.content.trim(),
                 category: docDraft.category
             });
 
             if (res.data?.success) {
-                toast.success('Documento normativo actualizado en RAG');
-                fetchDocuments();
+                toast.success(isCreatingNew ? 'Nuevo documento creado en RAG' : 'Documento normativo actualizado');
+                setIsCreatingNew(false);
+                await fetchDocuments(finalDocId);
             }
         } catch (err) {
             console.error('Error saving knowledge doc:', err);
             toast.error('Error al guardar documento');
         } finally {
             setSavingDoc(false);
+        }
+    };
+
+    const handleDeleteDoc = async () => {
+        if (!selectedDocId || isCreatingNew) return;
+
+        const confirmDelete = window.confirm(`¿Estás seguro de desactivar el documento "${docDraft.title || selectedDocId}" de la base de conocimiento?`);
+        if (!confirmDelete) return;
+
+        try {
+            setDeletingDoc(true);
+            const res = await api.delete(`/knowledge/${encodeURIComponent(selectedDocId)}`);
+            if (res.data?.success) {
+                toast.success('Documento desactivado del RAG');
+                await fetchDocuments();
+            }
+        } catch (err) {
+            console.error('Error deleting doc:', err);
+            toast.error('Error al desactivar documento');
+        } finally {
+            setDeletingDoc(false);
         }
     };
 
@@ -178,9 +231,19 @@ export const AiKnowledgeSettings = ({ settings = {}, updateSetting }) => {
                 </div>
 
                 <div className={shared.ConfigSection__body}>
-                    <p className={styles.AiKnowledgeSettings__desc}>
-                        Estos documentos se inyectan en tiempo real al motor de IA para resolver consultas sobre convenios, honorarios, modalidades de atención y plazos de recetas sin alucinaciones.
-                    </p>
+                    <div className={styles.AiKnowledgeSettings__headerAction}>
+                        <p className={styles.AiKnowledgeSettings__desc}>
+                            Estos documentos se inyectan en tiempo real al motor de IA para resolver consultas sobre convenios, honorarios, modalidades de atención y plazos de recetas sin alucinaciones.
+                        </p>
+                        <Button
+                            variant="secondary"
+                            onClick={handleStartNewDoc}
+                            disabled={isCreatingNew}
+                        >
+                            <Icon name="add" size="1rem" />
+                            <span>Nuevo Documento</span>
+                        </Button>
+                    </div>
 
                     {loadingDocs ? (
                         <Loading variant="centered" />
@@ -192,24 +255,61 @@ export const AiKnowledgeSettings = ({ settings = {}, updateSetting }) => {
                                     <button
                                         key={doc.document_id}
                                         type="button"
-                                        className={`${styles.AiKnowledgeSettings__docTab} ${selectedDocId === doc.document_id ? styles['AiKnowledgeSettings__docTab--active'] : ''}`}
+                                        className={`${styles.AiKnowledgeSettings__docTab} ${!isCreatingNew && selectedDocId === doc.document_id ? styles['AiKnowledgeSettings__docTab--active'] : ''}`}
                                         onClick={() => handleSelectDoc(doc.document_id)}
                                     >
                                         <Icon name="description" size="1rem" />
                                         <span>{doc.title || doc.document_id}</span>
                                     </button>
                                 ))}
+
+                                {documents.length === 0 && !isCreatingNew && (
+                                    <div className={styles.AiKnowledgeSettings__empty}>
+                                        No hay documentos registrados. Haz clic en 'Nuevo Documento' para crear uno.
+                                    </div>
+                                )}
                             </div>
 
                             {/* Editor del Documento */}
                             <div className={styles.AiKnowledgeSettings__docEditor}>
-                                <ConfigField
-                                    id="doc-title"
-                                    label="Título del Documento"
-                                    type="text"
-                                    value={docDraft.title}
-                                    onChange={(v) => setDocDraft(prev => ({ ...prev, title: v }))}
-                                />
+                                {isCreatingNew ? (
+                                    <div className={styles.AiKnowledgeSettings__badgeCreating}>
+                                        <Icon name="note_add" size="1.1rem" />
+                                        <span>Creando Nuevo Documento Normativo</span>
+                                    </div>
+                                ) : null}
+
+                                {isCreatingNew ? (
+                                    <ConfigField
+                                        id="doc-id"
+                                        label="Identificador único (slug)"
+                                        type="text"
+                                        placeholder="ej: normativa-psicologia-aranceles"
+                                        value={newDocId}
+                                        onChange={setNewDocId}
+                                        description="Identificador sin espacios ni tildes (usar guiones medios)."
+                                    />
+                                ) : null}
+
+                                <div className={styles.AiKnowledgeSettings__row}>
+                                    <ConfigField
+                                        id="doc-title"
+                                        label="Título del Documento"
+                                        type="text"
+                                        placeholder="ej: Aranceles y Obras Sociales de Psicología"
+                                        value={docDraft.title}
+                                        onChange={(v) => setDocDraft(prev => ({ ...prev, title: v }))}
+                                    />
+
+                                    <ConfigField
+                                        id="doc-category"
+                                        label="Categoría"
+                                        type="text"
+                                        placeholder="aranceles, atencion, recetas, general..."
+                                        value={docDraft.category}
+                                        onChange={(v) => setDocDraft(prev => ({ ...prev, category: v }))}
+                                    />
+                                </div>
 
                                 <div className={styles.AiKnowledgeSettings__field}>
                                     <label className={styles.AiKnowledgeSettings__label} htmlFor="doc-content">
@@ -221,18 +321,41 @@ export const AiKnowledgeSettings = ({ settings = {}, updateSetting }) => {
                                         rows={12}
                                         value={docDraft.content}
                                         onChange={(e) => setDocDraft(prev => ({ ...prev, content: e.target.value }))}
-                                        placeholder="Detalla convenios, aranceles, plazos de hasta 72 hs..."
+                                        placeholder="Detalla convenios, excepciones, costos y directivas para la IA..."
                                     />
                                 </div>
 
-                                <div className={styles.AiKnowledgeSettings__actions}>
-                                    <Button
-                                        variant="primary"
-                                        onClick={handleSaveDoc}
-                                        disabled={savingDoc}
-                                    >
-                                        {savingDoc ? 'Guardando...' : 'Guardar y Actualizar RAG'}
-                                    </Button>
+                                <div className={styles.AiKnowledgeSettings__editorActions}>
+                                    {!isCreatingNew && selectedDocId ? (
+                                        <Button
+                                            variant="danger"
+                                            onClick={handleDeleteDoc}
+                                            disabled={deletingDoc}
+                                        >
+                                            <Icon name="delete" size="1rem" />
+                                            <span>{deletingDoc ? 'Eliminando...' : 'Eliminar Documento'}</span>
+                                        </Button>
+                                    ) : null}
+
+                                    <div className={styles.AiKnowledgeSettings__rightActions}>
+                                        {isCreatingNew ? (
+                                            <Button
+                                                variant="secondary"
+                                                onClick={handleCancelNewDoc}
+                                                disabled={savingDoc}
+                                            >
+                                                Cancelar
+                                            </Button>
+                                        ) : null}
+
+                                        <Button
+                                            variant="primary"
+                                            onClick={handleSaveDoc}
+                                            disabled={savingDoc}
+                                        >
+                                            {savingDoc ? 'Guardando...' : (isCreatingNew ? 'Crear Documento RAG' : 'Guardar y Actualizar RAG')}
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
