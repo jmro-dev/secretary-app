@@ -351,7 +351,7 @@ function enqueuePhoneTask(phone, taskFn) {
     const nextQueue = currentQueue
         .then(() => taskFn())
         .catch(err => {
-            console.error(`[WhatsApp Queue Error - ${phone}]:`, err.message);
+            console.error('[WhatsApp Queue Error]:', phone, err.message);
         })
         .finally(() => {
             if (phoneTaskQueues.get(phone) === nextQueue) {
