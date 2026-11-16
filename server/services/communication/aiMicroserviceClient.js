@@ -93,6 +93,32 @@ async function buildClinicContext() {
     }
 }
 
+const CLINICAL_SYSTEM_CONFIG = {
+    systemRole: `Eres el asistente virtual clínico oficial de atención por mensajería para consultorios médicos Cima Salud Tandil.
+Tu función es clasificar la intención del paciente, extraer entidades médicas y sugerir respuestas empáticas, profesionales y precisas.`,
+    emergencyGuardrail: {
+        terms: ['pecho', 'infarto', 'respirar', 'aire', 'desmayo', 'asfixia', 'coronario'],
+        reply: '⚠️ Por los síntomas que describes, te recomendamos acudir de inmediato a la guardia médica más cercana o comunicarte con el servicio de emergencias médicas (107 / 911). La secretaría ha sido notificada.',
+        actionRequired: 'ESCALATE_HUMAN',
+        intent: 'EMERGENCIA_VITAL',
+        urgency: 'alta'
+    },
+    restrictedGuardrail: {
+        terms: ['clonazepam', 'rivotril', 'receta', 'medicamento', 'farmaco', 'ansiolitico', 'morfina'],
+        reply: 'Hola. Te recordamos que la emisión o renovación de recetas médicas requiere evaluación médica presencial o consulta programada. No se emiten recetas automáticas por WhatsApp.',
+        actionRequired: 'ESCALATE_HUMAN',
+        intent: 'PRESCRIPCION_RESTRINGIDA',
+        urgency: 'baja'
+    },
+    allowedIntents: [
+        'SOLICITUD_TURNO',
+        'CONSULTA_ARANCEL',
+        'CANCELACION_REPROGRAMACION',
+        'INFORMACION_HORARIOS',
+        'OTRO'
+    ]
+};
+
 async function processInboundMessage({ sender: _sender, message, patientId, phone }) {
     if (!patientId || !message || typeof message !== 'string') return null;
 
@@ -121,6 +147,7 @@ async function processInboundMessage({ sender: _sender, message, patientId, phon
             patientId: Number(patientId),
             phone: phone.startsWith('+') ? phone : `+${phone}`,
             message,
+            systemConfig: CLINICAL_SYSTEM_CONFIG,
             conversationHistory,
             clinicContext
         };
