@@ -4,14 +4,14 @@ type: entity
 responsibility: Express MVC backend providing REST APIs, authentication, and database orchestration.
 sources:
   - server/app.js
-synced: 33593f0d
-sources_key: 46c4b440c978
+synced: eaed1573
+sources_key: 4677bec068cf
 related:
   - ../architecture.md
   - ./client.md
   - ./whatsapp-bridge.md
 generated: { by: antigravity/gemini-flash, at: 2026-10-27T05:07:00Z }
-verified: { by: antigravity/gemini-flash, at: 2026-11-16T09:20:00Z }
+verified: { by: antigravity/gemini-flash, at: 2026-11-16T10:35:00Z }
 ---
 
 # Server Application
