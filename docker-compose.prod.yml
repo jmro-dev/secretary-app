@@ -55,6 +55,7 @@ services:
       - WHATSAPP_BRIDGE_URL=http://whatsapp-bridge:8090/api/send
       - WHATSAPP_BRIDGE_STATUS_URL=http://whatsapp-bridge:8090/api/status
       - WHATSAPP_BRIDGE_SECRET=${WHATSAPP_BRIDGE_SECRET:?WHATSAPP_BRIDGE_SECRET no definida en .env}
+      - EDI3_AI_SERVICE_URL=http://ai-service-prod:8000
     depends_on:
       db-prod:
         condition: service_healthy
@@ -65,6 +66,34 @@ services:
       test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5000/api/health" ]
       interval: 30s
       timeout: 10s
+      retries: 3
+
+  ai-service-prod:
+    build:
+      context: ./edi3-ai-production
+      dockerfile: Dockerfile
+    restart: always
+    container_name: secretary-ai-service-prod
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    logging: *default-logging
+    networks:
+      - internal-network
+    environment:
+      - PORT=8000
+      - HOST=0.0.0.0
+      - NODE_ENV=production
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      - OLLAMA_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:3b}
+    volumes:
+      - ./data/ai_data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8000/health"]
+      interval: 20s
+      timeout: 5s
       retries: 3
 
   whatsapp-bridge:
