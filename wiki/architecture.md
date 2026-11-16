@@ -6,10 +6,10 @@ sources:
   - server/app.js
   - client/src/main.jsx
   - whatsapp-bridge-go/main.go
-synced: 48185ad7
-sources_key: 3b98bd4a9027
+synced: 33593f0d
+sources_key: bbab401a35d0
 generated: { by: antigravity/gemini-flash, at: 2026-10-27T05:07:00Z }
-verified: { by: antigravity/gemini-flash, at: 2026-11-16T08:33:00Z }
+verified: { by: antigravity/gemini-flash, at: 2026-11-16T09:20:00Z }
 ---
 
 # System Architecture

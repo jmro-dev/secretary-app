@@ -6,13 +6,14 @@ sources:
   - server/services/communication/aiMicroserviceClient.js
   - server/services/communication/aiConfigService.js
   - server/services/communication/whatsappService.js
-synced: 48185ad7
-sources_key: a5d094a34cb8
+synced: 33593f0d
+sources_key: d038940a062b
 related:
   - ../architecture.md
   - ./appointment-booking.md
   - ../components/whatsapp-bridge.md
 generated: { by: antigravity/gemini-flash, at: 2026-11-16T08:33:00Z }
+verified: { by: antigravity/gemini-flash, at: 2026-11-16T09:20:00Z }
 ---
 
 # WhatsApp AI Assistance Flow

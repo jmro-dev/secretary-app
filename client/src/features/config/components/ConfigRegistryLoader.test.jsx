@@ -22,14 +22,14 @@ describe('loadDefaultConfigSections', () => {
         expect(registeredKeys).not.toContain('logs');
     });
 
-    it('registers valid sections with role scoping (modules, communications, integrations, billing, users)', () => {
+    it('registers valid sections with role scoping (modules, communications, integrations, billing, ai_knowledge, users)', () => {
         loadDefaultConfigSections((key) => key);
 
         const registeredKeys = registerMock.mock.calls.map(([key]) => key);
-        expect(registeredKeys).toEqual(['modules', 'communications', 'integrations', 'billing', 'users']);
+        expect(registeredKeys).toEqual(['modules', 'communications', 'integrations', 'billing', 'ai_knowledge', 'users']);
     });
 
-    it('assigns allowedRoles [admin] to modules, integrations and users, [secretary] to communications, and [admin, secretary] to billing', () => {
+    it('assigns allowedRoles [admin] to modules, integrations and users, [secretary] to communications, and [admin, secretary] to billing and ai_knowledge', () => {
         loadDefaultConfigSections((key) => key);
 
         const sectionMap = Object.fromEntries(
@@ -40,6 +40,7 @@ describe('loadDefaultConfigSections', () => {
         expect(sectionMap.communications.allowedRoles).toEqual(['secretary']);
         expect(sectionMap.integrations.allowedRoles).toEqual(['admin']);
         expect(sectionMap.billing.allowedRoles).toEqual(['admin', 'secretary']);
+        expect(sectionMap.ai_knowledge.allowedRoles).toEqual(['admin', 'secretary']);
         expect(sectionMap.users.allowedRoles).toEqual(['admin']);
     });
 });

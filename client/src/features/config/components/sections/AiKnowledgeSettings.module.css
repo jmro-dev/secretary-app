@@ -1,0 +1,132 @@
+.AiKnowledgeSettings__root {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.AiKnowledgeSettings__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-bottom: 1rem;
+}
+
+.AiKnowledgeSettings__label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary, #1e293b);
+}
+
+.AiKnowledgeSettings__help {
+    font-size: 0.8rem;
+    color: var(--text-secondary, #64748b);
+}
+
+.AiKnowledgeSettings__textarea {
+    width: 100%;
+    padding: 0.75rem;
+    font-family: inherit;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    border: 1px solid var(--border-color, #cbd5e1);
+    border-radius: var(--radius-md, 8px);
+    background-color: var(--bg-surface, #fff);
+    color: var(--text-primary, #1e293b);
+    resize: vertical;
+}
+
+.AiKnowledgeSettings__textareaLarge {
+    width: 100%;
+    padding: 0.75rem;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    border: 1px solid var(--border-color, #cbd5e1);
+    border-radius: var(--radius-md, 8px);
+    background-color: var(--bg-surface, #fff);
+    color: var(--text-primary, #1e293b);
+    resize: vertical;
+    font-family: monospace, ui-monospace;
+}
+
+.AiKnowledgeSettings__row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.AiKnowledgeSettings__actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 1rem;
+}
+
+.AiKnowledgeSettings__desc {
+    font-size: 0.9rem;
+    color: var(--text-secondary, #64748b);
+    margin-bottom: 1.25rem;
+    line-height: 1.5;
+}
+
+.AiKnowledgeSettings__docContainer {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 1.5rem;
+    min-height: 400px;
+}
+
+.AiKnowledgeSettings__docList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    border-right: 1px solid var(--border-color, #e2e8f0);
+    padding-right: 1rem;
+}
+
+.AiKnowledgeSettings__docTab {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md, 6px);
+    background: transparent;
+    color: var(--text-secondary, #475569);
+    font-size: 0.85rem;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.AiKnowledgeSettings__docTab:hover {
+    background-color: var(--bg-hover, #f1f5f9);
+    color: var(--text-primary, #0f172a);
+}
+
+.AiKnowledgeSettings__docTab--active {
+    background-color: var(--primary-light, #eff6ff);
+    color: var(--primary, #2563eb);
+    font-weight: 600;
+    border-color: var(--primary-border, #bfdbfe);
+}
+
+.AiKnowledgeSettings__docEditor {
+    display: flex;
+    flex-direction: column;
+}
+
+@media (width <= 768px) {
+    .AiKnowledgeSettings__row {
+        grid-template-columns: 1fr;
+    }
+
+    .AiKnowledgeSettings__docContainer {
+        grid-template-columns: 1fr;
+    }
+
+    .AiKnowledgeSettings__docList {
+        border-right: none;
+        border-bottom: 1px solid var(--border-color, #e2e8f0);
+        padding-right: 0;
+        padding-bottom: 1rem;
+    }
+}
