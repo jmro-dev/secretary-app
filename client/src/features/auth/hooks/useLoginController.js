@@ -50,10 +50,34 @@ export const useLoginController = () => {
         if (clearGlobalError) clearGlobalError();
     };
 
+    const handleQuickLogin = async (user, pass) => {
+        setUsername(user);
+        setPassword(pass);
+        setError('');
+        if (clearGlobalError) clearGlobalError();
+        setLoading(true);
+
+        try {
+            const result = await login(user, pass);
+            if (result.success) {
+                const target = result.user?.role === 'admin' ? '/admin/users' : '/dashboard';
+                navigate(target);
+            } else {
+                setError(result.message || t('invalid_credentials'));
+            }
+        } catch (err) {
+            console.error("[LoginController] Error during quick login:", err);
+            setError(t('error_occurred'));
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handlers = {
         setUsername: handleUsernameChange,
         setPassword: handlePasswordChange,
         handleSubmit,
+        handleQuickLogin,
     };
 
     return {
