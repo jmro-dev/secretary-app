@@ -8,12 +8,6 @@ import toast from 'react-hot-toast';
 import styles from './AiKnowledgeSettings.module.css';
 import shared from '@/styles/shared.module.css';
 
-const DEFAULT_DOCS = [
-    { document_id: 'normativa-aranceles-y-pagos', title: 'Aranceles, Obras Sociales y Pagos', category: 'aranceles' },
-    { document_id: 'normativa-atencion-y-modalidades', title: 'Modalidades de Atención y Urgencias', category: 'atencion' },
-    { document_id: 'normativa-recetas-y-tramites', title: 'Recetas, Certificados y Licencias', category: 'recetas' }
-];
-
 export const AiKnowledgeSettings = ({ settings = {}, updateSetting }) => {
     const [documents, setDocuments] = useState([]);
     const [selectedDocId, setSelectedDocId] = useState('');
@@ -198,7 +192,7 @@ export const AiKnowledgeSettings = ({ settings = {}, updateSetting }) => {
                                     <button
                                         key={doc.document_id}
                                         type="button"
-                                        className={`${styles.AiKnowledgeSettings__docTab} ${selectedDocId === doc.document_id ? styles['docTab--active'] : ''}`}
+                                        className={`${styles.AiKnowledgeSettings__docTab} ${selectedDocId === doc.document_id ? styles['AiKnowledgeSettings__docTab--active'] : ''}`}
                                         onClick={() => handleSelectDoc(doc.document_id)}
                                     >
                                         <Icon name="description" size="1rem" />

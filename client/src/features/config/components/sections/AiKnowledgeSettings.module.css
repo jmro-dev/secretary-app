@@ -30,15 +30,22 @@
     line-height: 1.5;
     border: 1px solid var(--border-color, #cbd5e1);
     border-radius: var(--radius-md, 8px);
-    background-color: var(--bg-surface, #ffffff);
+    background-color: var(--bg-surface, #fff);
     color: var(--text-primary, #1e293b);
     resize: vertical;
 }
 
 .AiKnowledgeSettings__textareaLarge {
-    composes: AiKnowledgeSettings__textarea;
-    font-family: monospace, ui-monospace;
+    width: 100%;
+    padding: 0.75rem;
     font-size: 0.85rem;
+    line-height: 1.5;
+    border: 1px solid var(--border-color, #cbd5e1);
+    border-radius: var(--radius-md, 8px);
+    background-color: var(--bg-surface, #fff);
+    color: var(--text-primary, #1e293b);
+    resize: vertical;
+    font-family: monospace, ui-monospace;
 }
 
 .AiKnowledgeSettings__row {
@@ -95,7 +102,7 @@
     color: var(--text-primary, #0f172a);
 }
 
-.docTab--active {
+.AiKnowledgeSettings__docTab--active {
     background-color: var(--primary-light, #eff6ff);
     color: var(--primary, #2563eb);
     font-weight: 600;
@@ -107,7 +114,7 @@
     flex-direction: column;
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
     .AiKnowledgeSettings__row {
         grid-template-columns: 1fr;
     }
