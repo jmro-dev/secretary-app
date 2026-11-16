@@ -343,6 +343,26 @@ const refreshBridge = async () => {
     }
 };
 
+// Cola secuencial de promesas por teléfono para evitar race conditions y solapamiento de IA
+const phoneTaskQueues = new Map();
+
+function enqueuePhoneTask(phone, taskFn) {
+    const currentQueue = phoneTaskQueues.get(phone) || Promise.resolve();
+    const nextQueue = currentQueue
+        .then(() => taskFn())
+        .catch(err => {
+            console.error(`[WhatsApp Queue Error - ${phone}]:`, err.message);
+        })
+        .finally(() => {
+            if (phoneTaskQueues.get(phone) === nextQueue) {
+                phoneTaskQueues.delete(phone);
+            }
+        });
+
+    phoneTaskQueues.set(phone, nextQueue);
+    return nextQueue;
+}
+
 const handleWebhook = async (sender, message, isFromMe) => {
     const phone = sender.split('@')[0];
     const patientId = await whatsappRepository.findPatientByPhone(phone);
@@ -353,8 +373,11 @@ const handleWebhook = async (sender, message, isFromMe) => {
     const shouldProcessAi = process.env.WHATSAPP_AI_AUTO_BOOKING_ENABLED === 'true' && (!isFromMe || allowSelfTest) && patientId;
 
     if (shouldProcessAi) {
-        aiMicroserviceClient.processInboundMessage({ sender, message, patientId, phone })
-            .catch(err => console.error('[WhatsApp AI Error]:', err.message));
+        console.log(`[WhatsApp Webhook] Enqueueing AI inbound task for phone: ${phone} (patient: ${patientId})`);
+        enqueuePhoneTask(phone, async () => {
+            console.log(`[WhatsApp Webhook] Processing AI task for phone: ${phone}...`);
+            await aiMicroserviceClient.processInboundMessage({ sender, message, patientId, phone });
+        });
     }
 };
 
