@@ -129,6 +129,7 @@ app.use('/api/logs', require('./routes/system/logRoutes'));
 app.use('/api/google', require('./routes/integrations/googleRoutes'));
 app.use('/api/import', require('./routes/system/importRoutes'));
 app.use('/api/settings', require('./routes/system/settingsRoutes'));
+app.use('/api/knowledge', require('./routes/system/knowledgeRoutes'));
 app.use('/api/insurances', require('./routes/core/insuranceRoutes'));
 app.use('/api/holidays', require('./routes/appointments/holidayRoutes'));
 app.use('/api/messages', require('./routes/communication/messageRoutes'));

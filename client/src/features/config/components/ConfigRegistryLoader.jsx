@@ -7,6 +7,7 @@ const ModulesSettings = lazy(() => import('../components/sections/ModulesSetting
 const CommunicationSettings = lazy(() => import('../components/sections/CommunicationSettings').then(m => ({ default: m.CommunicationSettings })));
 const IntegrationSettings = lazy(() => import('../components/sections/IntegrationSettings').then(m => ({ default: m.IntegrationSettings })));
 const BillingSettings = lazy(() => import('../components/sections/BillingSettings').then(m => ({ default: m.BillingSettings })));
+const AiKnowledgeSettings = lazy(() => import('../components/sections/AiKnowledgeSettings').then(m => ({ default: m.AiKnowledgeSettings })));
 const AdminUsersSettings = lazy(() => import('../../users/AdminUsersPage').then(m => ({ default: m.AdminUsersPage })));
 
 // --- Specialized Wrappers to map the common Controller to specific component props ---
@@ -52,6 +53,14 @@ const BillingSettingsWrapper = ({ controller }) => (
     />
 );
 
+const AiKnowledgeSettingsWrapper = ({ controller }) => (
+    <AiKnowledgeSettings 
+        user={controller.user} 
+        settings={controller.settings} 
+        updateSetting={controller.handlers.updateSetting}
+    />
+);
+
 const UsersSettingsWrapper = ({ controller }) => (
     <AdminUsersSettings />
 );
@@ -66,5 +75,6 @@ export const loadDefaultConfigSections = (t) => {
     registerConfigSection('communications', { title: t('communications'), icon: 'chat', desc: t('communications_desc'), allowedRoles: ['secretary'] }, CommunicationSettingsWrapper);
     registerConfigSection('integrations', { title: t('integrations'), icon: 'extension', desc: t('integrations_desc'), allowedRoles: ['admin'] }, IntegrationSettingsWrapper);
     registerConfigSection('billing', { title: t('billing'), icon: 'payments', desc: t('billing_desc'), allowedRoles: ['admin', 'secretary'] }, BillingSettingsWrapper);
+    registerConfigSection('ai_knowledge', { title: 'Asistente IA', icon: 'smart_toy', desc: 'Base de conocimiento RAG y comportamiento del asistente', allowedRoles: ['admin', 'secretary'] }, AiKnowledgeSettingsWrapper);
     registerConfigSection('users', { title: t('users'), icon: 'people', desc: t('users_desc'), allowedRoles: ['admin'] }, UsersSettingsWrapper);
 };

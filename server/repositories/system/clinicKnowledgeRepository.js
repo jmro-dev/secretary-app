@@ -38,6 +38,29 @@ class ClinicKnowledgeRepository {
         );
         return rows[0] || null;
     }
+
+    async upsert(tenantId, { document_id, title, content, category = 'general' }, conn = this.pool) {
+        return await conn.query(
+            `INSERT INTO clinic_knowledge_documents (tenant_id, document_id, title, content, category, is_active)
+             VALUES (?, ?, ?, ?, ?, 1)
+             ON DUPLICATE KEY UPDATE
+                title = VALUES(title),
+                content = VALUES(content),
+                category = VALUES(category),
+                is_active = 1,
+                updated_at = CURRENT_TIMESTAMP`,
+            [tenantId, document_id, title, content, category]
+        );
+    }
+
+    async deactivate(tenantId, documentId, conn = this.pool) {
+        return await conn.query(
+            `UPDATE clinic_knowledge_documents
+             SET is_active = 0, updated_at = CURRENT_TIMESTAMP
+             WHERE tenant_id = ? AND document_id = ?`,
+            [tenantId, documentId]
+        );
+    }
 }
 
 const defaultPool = process.env.NODE_ENV === 'test' ? null : require('../../db').pool;
