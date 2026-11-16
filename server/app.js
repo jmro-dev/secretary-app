@@ -167,6 +167,18 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
         const { startSyncWorker } = require('./services/integrations/googleSyncService');
         startSyncWorker();
 
+        // AI Microservice Health Check (OpenAPI: GET /health)
+        const { checkHealth } = require('./services/communication/aiMicroserviceClient');
+        checkHealth().then(health => {
+            if (health) {
+                logger.info(`🤖 AI Microservice connected (status: ${health.status}, uptime: ${health.uptime}s)`);
+            } else {
+                logger.warn('⚠️ AI Microservice not reachable at startup. Fallback degraded mode active.');
+            }
+        }).catch(() => {
+            logger.warn('⚠️ AI Microservice health check failed at startup.');
+        });
+
         // Start WhatsApp Bridge (Go)
         // The bridge is now managed by docker-compose
         // const whatsappBridgeService = require('./services/communication/whatsappBridgeService');
