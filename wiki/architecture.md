@@ -6,7 +6,7 @@ sources:
   - server/app.js
   - client/src/main.jsx
   - whatsapp-bridge-go/main.go
-synced: eaed1573
+synced: efab1cea
 sources_key: ab1033953c9c
 generated: { by: antigravity/gemini-flash, at: 2026-10-27T05:07:00Z }
 verified: { by: antigravity/gemini-flash, at: 2026-11-16T10:35:00Z }

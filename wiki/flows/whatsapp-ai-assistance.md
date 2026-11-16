@@ -6,7 +6,7 @@ sources:
   - server/services/communication/aiMicroserviceClient.js
   - server/services/communication/aiConfigService.js
   - server/services/communication/whatsappService.js
-synced: eaed1573
+synced: efab1cea
 sources_key: 2158446cae41
 related:
   - ../architecture.md

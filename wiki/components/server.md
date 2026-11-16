@@ -4,7 +4,7 @@ type: entity
 responsibility: Express MVC backend providing REST APIs, authentication, and database orchestration.
 sources:
   - server/app.js
-synced: eaed1573
+synced: efab1cea
 sources_key: 4677bec068cf
 related:
   - ../architecture.md
