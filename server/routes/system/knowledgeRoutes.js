@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const verifyToken = require('../../middleware/auth/authMiddleware');
-const authorize = require('../../middleware/auth/roleMiddleware');
+const { verifyToken } = require('../../middleware/authMiddleware');
+const { authorize } = require('../../middleware/authorize');
 const { ACCESS_LEVELS } = require('../../constants/roles');
 const knowledgeController = require('../../controllers/system/knowledgeController');
 
