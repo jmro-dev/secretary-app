@@ -168,3 +168,82 @@
     font-weight: 600;
     opacity: 0.9;
 }
+
+/* Development Role Quick-Access Bar */
+.LoginForm__devSection {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px dashed var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.LoginForm__devHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.LoginForm__devTitle {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+
+.LoginForm__devBadge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: rgb(245, 158, 11, 0.15);
+    color: #d97706;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+}
+
+.LoginForm__devGrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+}
+
+.LoginForm__devBtn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0.5rem 0.6rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--background-bg);
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s ease;
+}
+
+.LoginForm__devBtn:hover:not(:disabled) {
+    border-color: var(--primary-color);
+    background: var(--dashboard-card-bg);
+    transform: translateY(-1px);
+}
+
+.LoginForm__devBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.LoginForm__devRole {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-main);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.LoginForm__devUser {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-family: monospace;
+}
