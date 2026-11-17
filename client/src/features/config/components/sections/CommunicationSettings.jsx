@@ -44,24 +44,81 @@ export const CommunicationSettings = ({ user, settings = {}, updateSetting, inse
 
     return (
         <div className={`${styles.CommunicationSettings__root} ${shared.TabPanel} ${shared.AnimateFadeIn}`}>
-            {/* Clinic Address */}
+            {/* Institución y Ubicación */}
             <div className={shared.ConfigSection}>
                 <div className={shared.ConfigSection__header}>
-                    <Icon name="settings" size="1.2rem" className={shared.ConfigSection__icon} />
-                    <h4 className={shared.ConfigSection__title}>{t('clinic_address_title')}</h4>
+                    <Icon name="business" size="1.2rem" className={shared.ConfigSection__icon} />
+                    <h4 className={shared.ConfigSection__title}>Datos de la Institución y Atención</h4>
                 </div>
 
                 <div className={shared.ConfigSection__body}>
-                    <ConfigField
-                        id="clinic-address"
-                        label={t('physical_address_label')}
-                        type="text"
-                        placeholder={t('address_placeholder_example')}
-                        value={settings.clinic_address || ''}
-                        onChange={(e) => updateSetting('clinic_address', e.target.value)}
-                        disabled={!isAdmin}
-                        hint={t('physical_address_hint')}
-                    />
+                    <div className={`${shared.ConfigGrid} ${shared['ConfigGrid--2col']}`} style={{ marginBottom: '1rem' }}>
+                        <ConfigField
+                            id="clinic-name"
+                            label="Nombre de la Institución / Establecimiento"
+                            type="text"
+                            placeholder="Ej: Consultorio San Martín, Centro Médico..."
+                            value={getSettingValue('clinic_name') || ''}
+                            onChange={(e) => handleUpdateSetting('clinic_name', e.target.value)}
+                            disabled={!isAdmin}
+                            hint="Nombre oficial con el que se presenta el asistente virtual de IA a los pacientes."
+                        />
+
+                        <div className={styles.CommunicationSettings__field}>
+                            <label className={styles.CommunicationSettings__label} htmlFor="clinic-type">
+                                Tipo de Establecimiento
+                            </label>
+                            <select
+                                id="clinic-type"
+                                className={styles.CommunicationSettings__select || 'input'}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.6rem 0.8rem',
+                                    borderRadius: '6px',
+                                    border: '1px solid var(--border-color, #ccc)',
+                                    background: 'var(--bg-secondary, #fff)',
+                                    color: 'var(--text-primary, #333)',
+                                    fontSize: '0.95rem'
+                                }}
+                                value={getSettingValue('clinic_type') || 'Consultorio'}
+                                onChange={(e) => handleUpdateSetting('clinic_type', e.target.value)}
+                                disabled={!isAdmin}
+                            >
+                                <option value="Consultorio">Consultorio Médico</option>
+                                <option value="Clínica">Clínica</option>
+                                <option value="Centro Médico">Centro Médico</option>
+                                <option value="Sanatorio">Sanatorio</option>
+                                <option value="Instituto de Salud">Instituto de Salud</option>
+                            </select>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary, #666)', marginTop: '0.25rem', display: 'block' }}>
+                                Clasificación para las respuestas de la IA.
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className={`${shared.ConfigGrid} ${shared['ConfigGrid--2col']}`}>
+                        <ConfigField
+                            id="clinic-address"
+                            label={t('physical_address_label')}
+                            type="text"
+                            placeholder={t('address_placeholder_example')}
+                            value={getSettingValue('clinic_address') || ''}
+                            onChange={(e) => handleUpdateSetting('clinic_address', e.target.value)}
+                            disabled={!isAdmin}
+                            hint={t('physical_address_hint')}
+                        />
+
+                        <ConfigField
+                            id="secretary-hours"
+                            label="Horarios de Atención de Secretaría"
+                            type="text"
+                            placeholder="Ej: Lunes a Viernes de 9:00 a 14:00 hs"
+                            value={getSettingValue('secretary_hours') || ''}
+                            onChange={(e) => handleUpdateSetting('secretary_hours', e.target.value)}
+                            disabled={!isAdmin}
+                            hint="Horarios en los que hay atención presencial humana."
+                        />
+                    </div>
                 </div>
             </div>
 
