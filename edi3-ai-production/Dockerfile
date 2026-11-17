@@ -1,20 +1,19 @@
-FROM node:20-alpine AS builder
+FROM node:22-slim AS builder
 
 WORKDIR /app
 
-RUN corepack enable && corepack prepare pnpm@12.19.0 --activate
+RUN npm install -g pnpm@12.21.0
 
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY . .
+RUN pnpm exec tsc
 
 # Servidor de ejecución
-FROM node:20-alpine
+FROM node:22-slim
 
 WORKDIR /app
-
-RUN corepack enable && corepack prepare pnpm@12.19.0 --activate
 
 COPY --from=builder /app /app
 
@@ -24,4 +23,4 @@ ENV NODE_ENV=production
 
 EXPOSE 8000
 
-CMD ["pnpm", "exec", "tsx", "src/index.ts"]
+CMD ["node", "dist/index.js"]

@@ -1,13 +1,73 @@
-name: Deploy to Server
+name: Build & Deploy to Server
 
 on:
   push:
     branches:
       - main
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/secretary-app
+
 jobs:
+  build-and-push:
+    name: Build & Push Images to GHCR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: server
+            context: ./server
+            file: ./server/Dockerfile.prod
+            image: ghcr.io/jmrodev/secretary-app-server
+          - name: client
+            context: ./client
+            file: ./client/Dockerfile.prod
+            image: ghcr.io/jmrodev/secretary-app-client
+          - name: ai-service
+            context: ./edi3-ai-production
+            file: ./edi3-ai-production/Dockerfile
+            image: ghcr.io/jmrodev/secretary-app-ai-service
+          - name: whatsapp-bridge
+            context: ./whatsapp-bridge-go
+            file: ./whatsapp-bridge-go/Dockerfile
+            image: ghcr.io/jmrodev/secretary-app-whatsapp-bridge
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU for multi-platform build
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ matrix.image }}:latest
+            ${{ matrix.image }}:${{ github.sha }}
+
   deploy:
-    name: Deploy App via SSH
+    name: Deploy via SSH
+    needs: build-and-push
     runs-on: ubuntu-latest
     steps:
       - name: Execute Remote Deploy Commands
@@ -18,14 +78,15 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
-            export PNPM_HOME="/home/cima/.local/share/pnpm"
-            export PATH="$PNPM_HOME/bin:$PATH"
             cd ${{ secrets.DEPLOY_PATH }}
             git checkout main
             git pull origin main
             
-            # Reconstruir y levantar los contenedores de Docker para producción
-            docker compose -f docker-compose.prod.yml up -d --build
+            # Descargar únicamente las nuevas imágenes compiladas desde GHCR
+            docker compose -f docker-compose.prod.yml pull
             
-            # Limpiar imágenes antiguas/huérfanas para liberar espacio en la RPi
-            docker image prune -f
+            # Levantar los contenedores de producción sin recompilar
+            docker compose -f docker-compose.prod.yml up -d
+            
+            # Limpiar imágenes huérfanas/antiguas para liberar espacio en la RPi
+            docker image prune -af
