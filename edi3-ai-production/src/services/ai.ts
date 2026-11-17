@@ -80,14 +80,15 @@ Debes responder ÚNICAMENTE un objeto JSON válido con este esquema exacto:
 
 export class AIService {
   private geminiClient: GoogleGenAI | null = null;
-  private geminiModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
+  private geminiModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  private geminiFallbackModels = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3.1-flash-lite'];
   private ollamaUrl = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
   private ollamaModel = process.env.OLLAMA_MODEL || 'qwen2.5:3b';
 
   constructor() {
     const apiKey = process.env.GEMINI_API_KEY;
     if (apiKey) {
-      this.geminiClient = new GoogleGenAI({ apiKey });
+      this.geminiClient = new GoogleGenAI({ apiKey, apiVersion: 'v1beta' });
     }
   }
 
@@ -128,20 +129,26 @@ export class AIService {
       : '';
     const userPrompt = `${businessData}${ragContext}${historyContext}${toolContext}\n\n<mensaje_usuario>\n${message}\n</mensaje_usuario>`;
 
-    // 2. Cascada de inferencia: Nivel 1 (Gemini)
+    // 2. Cascada de inferencia: Nivel 1 (Gemini con cola de fallback en cadena)
     if (this.geminiClient) {
-      try {
-        const geminiRes = await this.callGemini(userPrompt, currentInstruction);
-        if (geminiRes) {
-          return {
-            ...geminiRes,
-            latencyMs: Date.now() - start,
-            engineUsed: 'gemini-3.5-flash-lite'
-          };
+      // Priorizar el modelo configurado y luego los fallbacks sin duplicar
+      const modelsQueue = Array.from(new Set([this.geminiModel, ...this.geminiFallbackModels]));
+
+      for (const modelCandidate of modelsQueue) {
+        try {
+          const geminiRes = await this.callGeminiModel(modelCandidate, userPrompt, currentInstruction);
+          if (geminiRes) {
+            return {
+              ...geminiRes,
+              latencyMs: Date.now() - start,
+              engineUsed: modelCandidate
+            };
+          }
+        } catch (err: any) {
+          console.warn(`[edi3-ai-production] Falló modelo Gemini ${modelCandidate}:`, err.message);
         }
-      } catch (err: any) {
-        console.warn('[edi3-ai-production] Gemini falló, cayendo a Ollama local:', err.message);
       }
+      console.warn('[edi3-ai-production] Todos los modelos Gemini fallaron, cayendo a Ollama local');
     }
 
     // 3. Cascada de inferencia: Nivel 2 (Ollama local, contingencia offline)
@@ -223,12 +230,12 @@ export class AIService {
     }
   }
 
-  private async callGemini(prompt: string, instruction: string): Promise<Omit<AIAnalysisResult, 'latencyMs' | 'engineUsed'> | null> {
+  private async callGeminiModel(modelName: string, prompt: string, instruction: string): Promise<Omit<AIAnalysisResult, 'latencyMs' | 'engineUsed'> | null> {
     if (!this.geminiClient) return null;
 
     try {
       const response = await this.geminiClient.models.generateContent({
-        model: this.geminiModel,
+        model: modelName,
         contents: prompt,
         config: {
           systemInstruction: instruction,
@@ -241,7 +248,7 @@ export class AIService {
       if (!text) return null;
       return this.normalizeOutput(JSON.parse(text));
     } catch (err: any) {
-      console.warn('[edi3-ai-production] Gemini call failed:', err.message);
+      console.warn(`[edi3-ai-production] Gemini call failed for ${modelName}:`, err.message);
       return null;
     }
   }
