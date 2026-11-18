@@ -16,6 +16,7 @@ import { Colors } from '@/shared/theme/colors';
 interface AppointmentActionModalProps {
     visible: boolean;
     appointment: Appointment | null;
+    isStaff?: boolean;
     onClose: () => void;
     onUpdateStatus: (id: number, status: string, reason?: string) => Promise<boolean>;
     onViewPatientProfile: (patientId: number, appointmentId: number) => void;
@@ -64,6 +65,7 @@ const getStatusBadge = (status: AppointmentStatus) => {
 export const AppointmentActionModal: React.FC<AppointmentActionModalProps> = ({
     visible,
     appointment,
+    isStaff = false,
     onClose,
     onUpdateStatus,
     onViewPatientProfile,
@@ -194,23 +196,27 @@ export const AppointmentActionModal: React.FC<AppointmentActionModalProps> = ({
                             ) : null}
                         </View>
 
-                        {/* Gestión de Pago */}
-                        <Text style={styles.sectionTitle}>Gestión de Pago</Text>
-                        <TouchableOpacity
-                            style={[
-                                styles.btnAction,
-                                isPaid ? styles.btnPaymentPaid : styles.btnPayment,
-                            ]}
-                            onPress={onOpenPayment}
-                            activeOpacity={0.7}
-                            disabled={updating}
-                        >
-                            <Text style={styles.btnActionText}>
-                                {isPaid
-                                    ? `💳 Turno Pagado ($${paidAmount || cost}) - Ver / Modificar`
-                                    : '💰 Registrar Cobro'}
-                            </Text>
-                        </TouchableOpacity>
+                        {/* Gestión de Pago (Solo secretaria o administración) */}
+                        {isStaff && (
+                            <>
+                                <Text style={styles.sectionTitle}>Gestión de Pago</Text>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.btnAction,
+                                        isPaid ? styles.btnPaymentPaid : styles.btnPayment,
+                                    ]}
+                                    onPress={onOpenPayment}
+                                    activeOpacity={0.7}
+                                    disabled={updating}
+                                >
+                                    <Text style={styles.btnActionText}>
+                                        {isPaid
+                                            ? `💳 Turno Pagado ($${paidAmount || cost}) - Ver / Modificar`
+                                            : '💰 Registrar Cobro'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </>
+                        )}
 
                         {/* Asistencia / Status Actions */}
                         <Text style={styles.sectionTitle}>Acciones de Asistencia</Text>
@@ -222,7 +228,7 @@ export const AppointmentActionModal: React.FC<AppointmentActionModalProps> = ({
                             </View>
                         ) : (
                             <View style={styles.actionsGrid}>
-                                {canConfirm ? (
+                                {isStaff && canConfirm ? (
                                     <TouchableOpacity
                                         style={[styles.btnAction, styles.btnConfirm]}
                                         onPress={() => handleAction('confirmed')}
@@ -232,7 +238,7 @@ export const AppointmentActionModal: React.FC<AppointmentActionModalProps> = ({
                                     </TouchableOpacity>
                                 ) : null}
 
-                                {canArrive ? (
+                                {isStaff && canArrive ? (
                                     <TouchableOpacity
                                         style={[styles.btnAction, styles.btnArrived]}
                                         onPress={() => handleAction('arrived')}
@@ -262,7 +268,7 @@ export const AppointmentActionModal: React.FC<AppointmentActionModalProps> = ({
                                     </TouchableOpacity>
                                 ) : null}
 
-                                {canCancel ? (
+                                {isStaff && canCancel ? (
                                     <TouchableOpacity
                                         style={[styles.btnAction, styles.btnCancel]}
                                         onPress={() => handleAction('cancelled', 'Cancelado desde app')}

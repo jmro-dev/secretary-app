@@ -163,6 +163,7 @@ export const AppointmentsView: React.FC = () => {
             <AppointmentActionModal
                 visible={showActionModal}
                 appointment={selectedAppointment}
+                isStaff={isStaff}
                 onClose={() => {
                     setShowActionModal(false);
                     setSelectedAppointment(null);
