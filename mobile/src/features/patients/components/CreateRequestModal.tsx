@@ -12,7 +12,7 @@ import {
     ScrollView,
 } from 'react-native';
 import { Colors } from '@/shared/theme/colors';
-import { apiFetch } from '@/shared/services/api';
+import { apiFetch, getStoredUser } from '@/shared/services/api';
 import { showAlert } from '@/shared/utils/alert';
 
 interface CreateRequestModalProps {
@@ -79,26 +79,38 @@ export const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
     const [selectedDoctorId, setSelectedDoctorId] = useState<number | null>(null);
     const [doctorsLoading, setDoctorsLoading] = useState(false);
     const [doctorsError, setDoctorsError] = useState<string | null>(null);
+    const [isStaff, setIsStaff] = useState(false);
 
     // Fetch doctors list; callable from the visible-effect and the retry button.
-    const loadDoctors = () => {
-        setDoctorsLoading(true);
-        setDoctorsError(null);
-        apiFetch<{ data: { doctors: Array<{ id: number; full_name: string }> } }>('/users/doctors')
-            .then((res) => {
-                const list: Array<{ id: number; full_name: string }> =
-                    Array.isArray(res) ? res :
-                    Array.isArray((res as any)?.data) ? (res as any).data :
-                    (res as any)?.data?.doctors ?? [];
-                setDoctors(list);
-                if (list.length === 1) setSelectedDoctorId(list[0].id);
-            })
-            .catch((error) => {
-                console.error('[CreateRequestModal] doctors load failed:', error);
-                setDoctors([]);
-                setDoctorsError(error?.message || 'No se pudo cargar la lista de doctores.');
-            })
-            .finally(() => setDoctorsLoading(false));
+    const loadDoctors = async () => {
+        try {
+            const user = await getStoredUser();
+            const staff = user?.role === 'secretary' || user?.role === 'admin';
+            setIsStaff(staff);
+
+            if (!staff && user?.doctor_id) {
+                // Si es médico/a, se asigna a sí mismo automáticamente
+                setSelectedDoctorId(user.doctor_id);
+                return;
+            }
+
+            setDoctorsLoading(true);
+            setDoctorsError(null);
+            const res = await apiFetch<{ data: { doctors: Array<{ id: number; full_name: string }> } }>('/users/doctors');
+            const list: Array<{ id: number; full_name: string }> =
+                Array.isArray(res) ? res :
+                Array.isArray((res as any)?.data) ? (res as any).data :
+                (res as any)?.data?.doctors ?? [];
+            setDoctors(list);
+            if (list.length === 1) setSelectedDoctorId(list[0].id);
+            else if (user?.doctor_id) setSelectedDoctorId(user.doctor_id);
+        } catch (error: any) {
+            console.error('[CreateRequestModal] doctors load failed:', error);
+            setDoctors([]);
+            setDoctorsError(error?.message || 'No se pudo cargar la lista de doctores.');
+        } finally {
+            setDoctorsLoading(false);
+        }
     };
 
     useEffect(() => {
@@ -406,60 +418,62 @@ export const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
                             </>
                         )}
 
-                        {/* Doctor selector */}
-                        {doctorsLoading ? (
-                            <>
-                                <Text style={[styles.sectionLabel, { marginTop: 12 }]}>
-                                    Doctor que emite *
-                                </Text>
-                                <View style={styles.doctorsLoadingRow}>
-                                    <ActivityIndicator size="small" />
-                                    <Text style={styles.doctorsLoadingText}>Cargando doctores…</Text>
-                                </View>
-                            </>
-                        ) : doctorsError && doctors.length === 0 ? (
-                            <>
-                                <Text style={[styles.sectionLabel, { marginTop: 12 }]}>
-                                    Doctor que emite *
-                                </Text>
-                                <Text style={styles.doctorsErrorText}>{doctorsError}</Text>
-                                <TouchableOpacity
-                                    style={styles.retryBtn}
-                                    onPress={loadDoctors}
-                                    activeOpacity={0.7}
-                                >
-                                    <Text style={styles.retryBtnText}>Reintentar</Text>
-                                </TouchableOpacity>
-                            </>
-                        ) : (
-                            doctors.length > 0 && (
-                            <>
-                                <Text style={[styles.sectionLabel, { marginTop: 12 }]}>
-                                    Doctor que emite *
-                                </Text>
-                                <View style={styles.doctorChipsRow}>
-                                    {doctors.map((doc) => (
-                                        <TouchableOpacity
-                                            key={doc.id}
-                                            style={[
-                                                styles.doctorChip,
-                                                selectedDoctorId === doc.id && styles.doctorChipActive,
-                                            ]}
-                                            onPress={() => setSelectedDoctorId(doc.id)}
-                                            activeOpacity={0.7}
-                                        >
-                                            <Text
+                        {/* Doctor selector (solo visible para personal de secretaría / administración) */}
+                        {isStaff && (
+                            doctorsLoading ? (
+                                <>
+                                    <Text style={[styles.sectionLabel, { marginTop: 12 }]}>
+                                        Doctor que emite *
+                                    </Text>
+                                    <View style={styles.doctorsLoadingRow}>
+                                        <ActivityIndicator size="small" />
+                                        <Text style={styles.doctorsLoadingText}>Cargando doctores…</Text>
+                                    </View>
+                                </>
+                            ) : doctorsError && doctors.length === 0 ? (
+                                <>
+                                    <Text style={[styles.sectionLabel, { marginTop: 12 }]}>
+                                        Doctor que emite *
+                                    </Text>
+                                    <Text style={styles.doctorsErrorText}>{doctorsError}</Text>
+                                    <TouchableOpacity
+                                        style={styles.retryBtn}
+                                        onPress={loadDoctors}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={styles.retryBtnText}>Reintentar</Text>
+                                    </TouchableOpacity>
+                                </>
+                            ) : (
+                                doctors.length > 0 && (
+                                <>
+                                    <Text style={[styles.sectionLabel, { marginTop: 12 }]}>
+                                        Doctor que emite *
+                                    </Text>
+                                    <View style={styles.doctorChipsRow}>
+                                        {doctors.map((doc) => (
+                                            <TouchableOpacity
+                                                key={doc.id}
                                                 style={[
-                                                    styles.doctorChipText,
-                                                    selectedDoctorId === doc.id && styles.doctorChipTextActive,
+                                                    styles.doctorChip,
+                                                    selectedDoctorId === doc.id && styles.doctorChipActive,
                                                 ]}
+                                                onPress={() => setSelectedDoctorId(doc.id)}
+                                                activeOpacity={0.7}
                                             >
-                                                {doc.full_name}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                            </>
+                                                <Text
+                                                    style={[
+                                                        styles.doctorChipText,
+                                                        selectedDoctorId === doc.id && styles.doctorChipTextActive,
+                                                    ]}
+                                                >
+                                                    {doc.full_name}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                </>
+                                )
                             )
                         )}
 
