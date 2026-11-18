@@ -1,6 +1,6 @@
 import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Alert } from 'react-native';
-import { useAuth } from '@/shared/context/AuthContext';
+import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { LogoutButton } from '@/shared/components/LogoutButton';
 import { Colors } from '@/shared/theme/colors';
 
 interface AppointmentsHeaderProps {
@@ -14,25 +14,6 @@ export const AppointmentsHeader: React.FC<AppointmentsHeaderProps> = ({
     onChangeDate,
     onOpenFreeSlots,
 }) => {
-    const { logout } = useAuth();
-
-    const handleLogout = () => {
-        Alert.alert(
-            'Cerrar Sesión',
-            '¿Estás seguro/a de que querés salir de la aplicación?',
-            [
-                { text: 'Cancelar', style: 'cancel' },
-                {
-                    text: 'Salir',
-                    style: 'destructive',
-                    onPress: async () => {
-                        await logout();
-                    },
-                },
-            ]
-        );
-    };
-
     const isToday = selectedDate.toDateString() === new Date().toDateString();
 
     return (
@@ -75,13 +56,7 @@ export const AppointmentsHeader: React.FC<AppointmentsHeaderProps> = ({
                 </TouchableOpacity>
             ) : null}
 
-            <TouchableOpacity
-                style={styles.logoutButton}
-                onPress={handleLogout}
-                activeOpacity={0.7}
-            >
-                <Text style={styles.logoutText}>Salir</Text>
-            </TouchableOpacity>
+            <LogoutButton style={styles.logoutButton} />
         </View>
     );
 };

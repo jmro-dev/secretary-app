@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { usePatientSearch } from './hooks/usePatientSearch';
 import { PatientItemCard } from './components/PatientItemCard';
+import { LogoutButton } from '@/shared/components/LogoutButton';
 import { Patient } from '@/types/patients';
 import { Colors } from '@/shared/theme/colors';
 
@@ -46,6 +47,7 @@ export const PatientSearchView: React.FC = () => {
                         {totalCount > 0 ? `${totalCount} pacientes en registro` : 'Directorio de pacientes'}
                     </Text>
                 </View>
+                <LogoutButton />
             </View>
 
             {/* Buscador */}
@@ -119,17 +121,20 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.background,
     },
     header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
         backgroundColor: Colors.cardBackground,
-        paddingHorizontal: 20,
-        paddingVertical: 14,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
         borderBottomWidth: 1,
         borderBottomColor: Colors.border,
     },
     headerTitleWrap: {
-        flexDirection: 'column',
+        flex: 1,
     },
     title: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: 'bold',
         color: Colors.textMain,
     },

@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { useProcedures, FilterType, FilterStatus } from './hooks/useProcedures';
 import { ProcedureItemCard } from './components/ProcedureItemCard';
 import { ProcedureDetailModal } from './components/ProcedureDetailModal';
+import { LogoutButton } from '@/shared/components/LogoutButton';
 import { MedicalProcedure } from '@/types/procedures';
 import { Colors } from '@/shared/theme/colors';
 
@@ -75,10 +76,13 @@ export const ProceduresView: React.FC = () => {
         <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
             {/* Header */}
             <View style={styles.header}>
-                <Text style={styles.title}>Trámites Médicos</Text>
-                <Text style={styles.subtitle}>
-                    Recetas, licencias y certificados
-                </Text>
+                <View style={styles.headerTitleWrap}>
+                    <Text style={styles.title}>Trámites Médicos 📋</Text>
+                    <Text style={styles.subtitle}>
+                        Recetas, licencias y certificados
+                    </Text>
+                </View>
+                <LogoutButton />
             </View>
 
             {/* Search Input */}
@@ -258,17 +262,25 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.background,
     },
     header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: Colors.cardBackground,
         paddingHorizontal: 16,
-        paddingTop: 12,
-        paddingBottom: 6,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border,
+    },
+    headerTitleWrap: {
+        flex: 1,
     },
     title: {
-        fontSize: 22,
+        fontSize: 18,
         fontWeight: 'bold',
-        color: Colors.text,
+        color: Colors.textMain,
     },
     subtitle: {
-        fontSize: 13,
+        fontSize: 12,
         color: Colors.textSecondary,
         marginTop: 2,
     },
