@@ -5,16 +5,21 @@ import { User } from '@/types/auth';
 
 const getBaseHost = (): string => {
     if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
-        return window.location.hostname || 'localhost';
+        return window.location.origin;
+    }
+    // In production build or outside dev server, use the public server endpoint
+    if (!__DEV__) {
+        return 'http://secretaria.cimasalud.duckdns.org';
     }
     const debuggerHost = Constants.expoConfig?.hostUri;
     if (debuggerHost) {
-        return debuggerHost.split(':')[0];
+        return `http://${debuggerHost.split(':')[0]}:5000`;
     }
-    return '192.168.0.172';
+    return 'http://secretaria.cimasalud.duckdns.org';
 };
 
-export const API_BASE_URL = `http://${getBaseHost()}:5000/api`;
+const BASE = getBaseHost();
+export const API_BASE_URL = BASE.endsWith('/api') ? BASE : `${BASE}/api`;
 
 export const getAuthToken = async (): Promise<string | null> => {
     try {
