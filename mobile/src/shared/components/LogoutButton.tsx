@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, View, TouchableOpacity, Text, Alert } from 'react-native';
 import { useAuth } from '@/shared/context/AuthContext';
+import { isDoctorRole } from '@/types/auth';
 import { Colors } from '@/shared/theme/colors';
 
 interface LogoutButtonProps {
@@ -29,7 +30,7 @@ export const LogoutButton: React.FC<LogoutButtonProps> = ({ style, showUserInfo 
     };
 
     const displayName = user?.name || user?.username || 'Usuario';
-    const roleBadge = user?.role === 'doctor' ? '🩺 Dra/Dr' : '👩‍💼 Secretaría';
+    const roleBadge = isDoctorRole(user?.role) ? '🩺 Dra/Dr' : '👩‍💼 Secretaría';
 
     return (
         <View style={styles.container}>

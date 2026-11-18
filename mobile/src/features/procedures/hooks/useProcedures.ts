@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { apiFetch, getStoredUser } from '@/shared/services/api';
+import { isStaffRole } from '@/types/auth';
 import { MedicalProcedure, ProcedureType, ProcedureStatus } from '@/types/procedures';
 
 export type FilterType = 'all' | ProcedureType;
@@ -33,7 +34,7 @@ export const useProcedures = () => {
         let cancelled = false;
         getStoredUser()
             .then((user) => {
-                const staff = user?.role === 'secretary' || user?.role === 'admin';
+                const staff = isStaffRole(user?.role);
                 if (!cancelled) {
                     setIsStaff(staff);
                     if (staff) {

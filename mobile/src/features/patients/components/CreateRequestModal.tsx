@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Colors } from '@/shared/theme/colors';
 import { apiFetch, getStoredUser } from '@/shared/services/api';
+import { isStaffRole } from '@/types/auth';
 import { showAlert } from '@/shared/utils/alert';
 
 interface CreateRequestModalProps {
@@ -85,7 +86,7 @@ export const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
     const loadDoctors = async () => {
         try {
             const user = await getStoredUser();
-            const staff = user?.role === 'secretary' || user?.role === 'admin';
+            const staff = isStaffRole(user?.role);
             setIsStaff(staff);
 
             if (!staff && user?.doctor_id) {

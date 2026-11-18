@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router';
 import { Text, Platform, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/shared/context/AuthContext';
+import { isDoctorRole } from '@/types/auth';
 import { Colors } from '@/shared/theme/colors';
 
 type TabName = 'procedures' | 'appointments' | 'patients';
@@ -27,7 +28,7 @@ export default function TabsLayout() {
     const insets = useSafeAreaInsets();
     const bottomPadding = Math.max(insets.bottom, Platform.OS === 'ios' ? 24 : 8);
 
-    const tabOrder = user?.role === 'doctor' ? DOCTOR_TAB_ORDER : STAFF_TAB_ORDER;
+    const tabOrder = isDoctorRole(user?.role) ? DOCTOR_TAB_ORDER : STAFF_TAB_ORDER;
 
     return (
         <Tabs

@@ -10,8 +10,11 @@ export interface User {
     email?: string;
 }
 
+export const isDoctorRole = (role?: UserRole): boolean => role === 'doctor';
+export const isStaffRole = (role?: UserRole): boolean => role === 'secretary' || role === 'admin';
+
 export const getDefaultAppRoute = (role?: UserRole): '/(app)/procedures' | '/(app)/appointments' => {
-    return role === 'doctor' ? '/(app)/procedures' : '/(app)/appointments';
+    return isDoctorRole(role) ? '/(app)/procedures' : '/(app)/appointments';
 };
 
 export interface LoginCredentials {

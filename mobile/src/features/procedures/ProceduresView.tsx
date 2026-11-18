@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
         gap: 4,
     },
     typeFilterPillActive: {
-        backgroundColor: 'rgba(0, 168, 132, 0.12)',
+        backgroundColor: Colors.primaryLight,
         borderColor: Colors.primary,
     },
     typeFilterIcon: {
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
         borderColor: Colors.border,
     },
     doctorFilterPillActive: {
-        backgroundColor: 'rgba(0, 168, 132, 0.12)',
+        backgroundColor: Colors.primaryLight,
         borderColor: Colors.primary,
     },
     doctorFilterText: {
