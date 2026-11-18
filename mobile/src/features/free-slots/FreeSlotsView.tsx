@@ -49,6 +49,7 @@ export const FreeSlotsView: React.FC<FreeSlotsViewProps> = ({
     const [showModal, setShowModal] = useState<boolean>(false);
 
     const handleSelectSlot = (day: FreeSlotDay, slot: FreeSlot) => {
+        if (!isStaff) return; // Solo lectura para médicos: sin gestión ni modal de compartir/reservar
         setSelectedDay(day);
         setSelectedSlot(slot);
         setShowModal(true);
@@ -123,6 +124,7 @@ export const FreeSlotsView: React.FC<FreeSlotsViewProps> = ({
                         <FreeSlotDayCard
                             day={item}
                             onSelectSlot={handleSelectSlot}
+                            readOnly={!isStaff}
                         />
                     )}
                     contentContainerStyle={styles.listContent}

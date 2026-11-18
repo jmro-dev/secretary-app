@@ -9,15 +9,7 @@ export const getBaseHost = (): string => {
     if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
         return window.location.origin;
     }
-    // En APK compilado (producción real): siempre producción
-    if (!__DEV__) {
-        return PROD_API_URL;
-    }
-    // En desarrollo (Expo Go): conectar a la IP de la máquina de desarrollo
-    const debuggerHost = Constants.expoConfig?.hostUri;
-    if (debuggerHost) {
-        return `http://${debuggerHost.split(':')[0]}:5000/api`;
-    }
+    // Conectar por defecto siempre al backend activo de la Raspberry Pi
     return PROD_API_URL;
 };
 
@@ -27,7 +19,6 @@ const ENV_STORAGE_KEY = 'app_environment_override';
 export const getApiUrl = async (): Promise<string> => {
     try {
         const override = await AsyncStorage.getItem(ENV_STORAGE_KEY);
-        if (override === 'prod') return PROD_API_URL;
         if (override === 'dev') {
             const host = Constants.expoConfig?.hostUri?.split(':')[0] || '192.168.50.30';
             return `http://${host}:5000/api`;
@@ -35,8 +26,7 @@ export const getApiUrl = async (): Promise<string> => {
     } catch {
         // Ignorar error de lectura
     }
-    const base = getBaseHost();
-    return base.endsWith('/api') ? base : `${base}/api`;
+    return PROD_API_URL;
 };
 
 export const setEnvironmentOverride = async (env: 'dev' | 'prod' | 'auto'): Promise<void> => {

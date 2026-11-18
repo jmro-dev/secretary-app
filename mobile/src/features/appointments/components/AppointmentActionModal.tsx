@@ -105,6 +105,14 @@ export const AppointmentActionModal: React.FC<AppointmentActionModalProps> = ({
     const canMarkAbsent = ['pending', 'confirmed', 'rescheduled'].includes(status);
     const canCancel = status !== 'cancelled' && status !== 'completed' && status !== 'attended';
 
+    const hasAssistanceActions =
+        (isStaff && canConfirm) ||
+        (isStaff && canArrive) ||
+        canAttend ||
+        canMarkAbsent ||
+        (isStaff && canCancel);
+    const isAttended = status === 'completed' || status === 'attended';
+
     const handleAction = async (newStatus: string, reason?: string) => {
         try {
             setUpdating(true);
@@ -219,66 +227,74 @@ export const AppointmentActionModal: React.FC<AppointmentActionModalProps> = ({
                         )}
 
                         {/* Asistencia / Status Actions */}
-                        <Text style={styles.sectionTitle}>Acciones de Asistencia</Text>
-
                         {updating ? (
-                            <View style={styles.loadingBox}>
-                                <ActivityIndicator size="small" color={Colors.primary} />
-                                <Text style={styles.loadingText}>Actualizando estado del turno...</Text>
+                            <>
+                                <Text style={styles.sectionTitle}>Acciones de Asistencia</Text>
+                                <View style={styles.loadingBox}>
+                                    <ActivityIndicator size="small" color={Colors.primary} />
+                                    <Text style={styles.loadingText}>Actualizando estado del turno...</Text>
+                                </View>
+                            </>
+                        ) : hasAssistanceActions ? (
+                            <>
+                                <Text style={styles.sectionTitle}>Acciones de Asistencia</Text>
+                                <View style={styles.actionsGrid}>
+                                    {isStaff && canConfirm ? (
+                                        <TouchableOpacity
+                                            style={[styles.btnAction, styles.btnConfirm]}
+                                            onPress={() => handleAction('confirmed')}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Text style={styles.btnActionText}>✅ Confirmar Turno</Text>
+                                        </TouchableOpacity>
+                                    ) : null}
+
+                                    {isStaff && canArrive ? (
+                                        <TouchableOpacity
+                                            style={[styles.btnAction, styles.btnArrived]}
+                                            onPress={() => handleAction('arrived')}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Text style={styles.btnActionText}>📍 Llegó (En Sala)</Text>
+                                        </TouchableOpacity>
+                                    ) : null}
+
+                                    {canAttend ? (
+                                        <TouchableOpacity
+                                            style={[styles.btnAction, styles.btnAttend]}
+                                            onPress={() => handleAction('completed')}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Text style={styles.btnActionText}>🩺 Atender / Completar</Text>
+                                        </TouchableOpacity>
+                                    ) : null}
+
+                                    {canMarkAbsent ? (
+                                        <TouchableOpacity
+                                            style={[styles.btnAction, styles.btnAbsent]}
+                                            onPress={() => handleAction('absent')}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Text style={styles.btnActionText}>⚠️ Marcar Ausente</Text>
+                                        </TouchableOpacity>
+                                    ) : null}
+
+                                    {isStaff && canCancel ? (
+                                        <TouchableOpacity
+                                            style={[styles.btnAction, styles.btnCancel]}
+                                            onPress={() => handleAction('cancelled', 'Cancelado desde app')}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Text style={styles.btnActionText}>🚫 Cancelar Turno</Text>
+                                        </TouchableOpacity>
+                                    ) : null}
+                                </View>
+                            </>
+                        ) : isAttended ? (
+                            <View style={styles.completedNoticeBox}>
+                                <Text style={styles.completedNoticeText}>✓ Turno atendido / completado</Text>
                             </View>
-                        ) : (
-                            <View style={styles.actionsGrid}>
-                                {isStaff && canConfirm ? (
-                                    <TouchableOpacity
-                                        style={[styles.btnAction, styles.btnConfirm]}
-                                        onPress={() => handleAction('confirmed')}
-                                        activeOpacity={0.7}
-                                    >
-                                        <Text style={styles.btnActionText}>✅ Confirmar Turno</Text>
-                                    </TouchableOpacity>
-                                ) : null}
-
-                                {isStaff && canArrive ? (
-                                    <TouchableOpacity
-                                        style={[styles.btnAction, styles.btnArrived]}
-                                        onPress={() => handleAction('arrived')}
-                                        activeOpacity={0.7}
-                                    >
-                                        <Text style={styles.btnActionText}>📍 Llegó (En Sala)</Text>
-                                    </TouchableOpacity>
-                                ) : null}
-
-                                {canAttend ? (
-                                    <TouchableOpacity
-                                        style={[styles.btnAction, styles.btnAttend]}
-                                        onPress={() => handleAction('completed')}
-                                        activeOpacity={0.7}
-                                    >
-                                        <Text style={styles.btnActionText}>🩺 Atender / Completar</Text>
-                                    </TouchableOpacity>
-                                ) : null}
-
-                                {canMarkAbsent ? (
-                                    <TouchableOpacity
-                                        style={[styles.btnAction, styles.btnAbsent]}
-                                        onPress={() => handleAction('absent')}
-                                        activeOpacity={0.7}
-                                    >
-                                        <Text style={styles.btnActionText}>⚠️ Marcar Ausente</Text>
-                                    </TouchableOpacity>
-                                ) : null}
-
-                                {isStaff && canCancel ? (
-                                    <TouchableOpacity
-                                        style={[styles.btnAction, styles.btnCancel]}
-                                        onPress={() => handleAction('cancelled', 'Cancelado desde app')}
-                                        activeOpacity={0.7}
-                                    >
-                                        <Text style={styles.btnActionText}>🚫 Cancelar Turno</Text>
-                                    </TouchableOpacity>
-                                ) : null}
-                            </View>
-                        )}
+                        ) : null}
                     </ScrollView>
                 </View>
             </View>
@@ -448,5 +464,19 @@ const styles = StyleSheet.create({
     },
     btnCancel: {
         backgroundColor: Colors.danger, // Red
+    },
+    completedNoticeBox: {
+        backgroundColor: Colors.successLight,
+        borderRadius: 10,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginVertical: 10,
+    },
+    completedNoticeText: {
+        color: Colors.success,
+        fontSize: 14,
+        fontWeight: 'bold',
     },
 });
