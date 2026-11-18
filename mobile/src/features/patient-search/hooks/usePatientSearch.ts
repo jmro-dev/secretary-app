@@ -9,7 +9,7 @@ export const usePatientSearch = () => {
     const [refreshing, setRefreshing] = useState<boolean>(false);
     const [totalCount, setTotalCount] = useState<number>(0);
 
-    const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+    const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const fetchPatients = useCallback(async (searchTerm: string = '') => {
         try {

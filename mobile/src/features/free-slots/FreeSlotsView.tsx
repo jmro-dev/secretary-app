@@ -144,7 +144,7 @@ export const FreeSlotsView: React.FC<FreeSlotsViewProps> = ({
                                     ➕ Cargar más turnos disponibles
                                 </Text>
                             </TouchableOpacity>
-                        ) : null
+                        ) : undefined
                     }
                 />
             )}

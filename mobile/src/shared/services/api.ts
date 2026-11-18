@@ -3,23 +3,61 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { User } from '@/types/auth';
 
-const getBaseHost = (): string => {
+const PROD_API_URL = 'https://secretaria.cimasalud.duckdns.org/api';
+
+export const getBaseHost = (): string => {
     if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
         return window.location.origin;
     }
-    // In production build or outside dev server, use the secure public server endpoint
+    // En APK compilado (producción real): siempre producción
     if (!__DEV__) {
-        return 'https://secretaria.cimasalud.duckdns.org';
+        return PROD_API_URL;
     }
+    // En desarrollo (Expo Go): conectar a la IP de la máquina de desarrollo
     const debuggerHost = Constants.expoConfig?.hostUri;
     if (debuggerHost) {
-        return `http://${debuggerHost.split(':')[0]}:5000`;
+        return `http://${debuggerHost.split(':')[0]}:5000/api`;
     }
-    return 'https://secretaria.cimasalud.duckdns.org';
+    return PROD_API_URL;
 };
 
-const BASE = getBaseHost();
-export const API_BASE_URL = BASE.endsWith('/api') ? BASE : `${BASE}/api`;
+// Clave para sobrescribir el entorno manualmente si se desea en pruebas
+const ENV_STORAGE_KEY = 'app_environment_override';
+
+export const getApiUrl = async (): Promise<string> => {
+    try {
+        const override = await AsyncStorage.getItem(ENV_STORAGE_KEY);
+        if (override === 'prod') return PROD_API_URL;
+        if (override === 'dev') {
+            const host = Constants.expoConfig?.hostUri?.split(':')[0] || '192.168.50.30';
+            return `http://${host}:5000/api`;
+        }
+    } catch {
+        // Ignorar error de lectura
+    }
+    const base = getBaseHost();
+    return base.endsWith('/api') ? base : `${base}/api`;
+};
+
+export const setEnvironmentOverride = async (env: 'dev' | 'prod' | 'auto'): Promise<void> => {
+    if (env === 'auto') {
+        await AsyncStorage.removeItem(ENV_STORAGE_KEY);
+    } else {
+        await AsyncStorage.setItem(ENV_STORAGE_KEY, env);
+    }
+};
+
+export const getEnvironmentOverride = async (): Promise<'dev' | 'prod' | 'auto'> => {
+    try {
+        const val = await AsyncStorage.getItem(ENV_STORAGE_KEY);
+        if (val === 'dev' || val === 'prod') return val;
+    } catch {
+        // fallback
+    }
+    return 'auto';
+};
+
+export const API_BASE_URL = getBaseHost().endsWith('/api') ? getBaseHost() : `${getBaseHost()}/api`;
 
 export const getAuthToken = async (): Promise<string | null> => {
     try {
@@ -41,6 +79,7 @@ export const getStoredUser = async (): Promise<User | null> => {
 export async function apiFetch<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const token = await getAuthToken();
     const userInfo = await getStoredUser();
+    const baseUrl = await getApiUrl();
 
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -55,7 +94,7 @@ export async function apiFetch<T = any>(endpoint: string, options: RequestInit =
         headers['x-doctor-id'] = String(userInfo.doctor_id || userInfo.profile_id);
     }
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const response = await fetch(`${baseUrl}${endpoint}`, {
         ...options,
         headers,
     });
