@@ -45,6 +45,7 @@ export const ProceduresView: React.FC = () => {
         doctorFilter,
         setDoctorFilter,
         doctors,
+        isStaff,
         searchQuery,
         setSearchQuery,
         actionLoading,
@@ -131,8 +132,8 @@ export const ProceduresView: React.FC = () => {
                 ))}
             </View>
 
-            {/* Doctor Scope Selector */}
-            {doctors.length > 0 && (
+            {/* Doctor Scope Selector (Solo para personal de secretaría o administración) */}
+            {isStaff && doctors.length > 0 && (
                 <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}

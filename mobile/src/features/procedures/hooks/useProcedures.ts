@@ -21,6 +21,7 @@ export const useProcedures = () => {
     const [statusFilter, setStatusFilter] = useState<FilterStatus>('pending');
     const [doctorFilter, setDoctorFilter] = useState<FilterDoctor>(null);
     const [doctors, setDoctors] = useState<DoctorOption[]>([]);
+    const [isStaff, setIsStaff] = useState(false);
     const [defaultScopeResolved, setDefaultScopeResolved] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
@@ -32,8 +33,12 @@ export const useProcedures = () => {
         let cancelled = false;
         getStoredUser()
             .then((user) => {
-                if (!cancelled && user?.role && user.role !== 'doctor') {
-                    setDoctorFilter('all');
+                const staff = user?.role === 'secretary' || user?.role === 'admin';
+                if (!cancelled) {
+                    setIsStaff(staff);
+                    if (staff) {
+                        setDoctorFilter('all');
+                    }
                 }
             })
             .catch(() => {})
@@ -159,6 +164,7 @@ export const useProcedures = () => {
         doctorFilter,
         setDoctorFilter,
         doctors,
+        isStaff,
         searchQuery,
         setSearchQuery,
         actionLoading,
