@@ -7,15 +7,15 @@ const getBaseHost = (): string => {
     if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
         return window.location.origin;
     }
-    // In production build or outside dev server, use the public server endpoint
+    // In production build or outside dev server, use the secure public server endpoint
     if (!__DEV__) {
-        return 'http://secretaria.cimasalud.duckdns.org';
+        return 'https://secretaria.cimasalud.duckdns.org';
     }
     const debuggerHost = Constants.expoConfig?.hostUri;
     if (debuggerHost) {
         return `http://${debuggerHost.split(':')[0]}:5000`;
     }
-    return 'http://secretaria.cimasalud.duckdns.org';
+    return 'https://secretaria.cimasalud.duckdns.org';
 };
 
 const BASE = getBaseHost();
