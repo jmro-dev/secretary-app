@@ -16,6 +16,28 @@ exports.uploadFile = async (req, res) => {
     }
 };
 
+exports.uploadAudioNote = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: "No se proporcionó ningún archivo de audio" });
+        }
+        const patientId = req.body?.patientId || req.body?.patient_id;
+        if (!patientId) {
+            return res.status(400).json({ success: false, message: "El ID de paciente (patientId) es obligatorio" });
+        }
+
+        const result = await medicalFileService.uploadAudioNote(req, req);
+        res.status(201).json({
+            success: true,
+            message: "Nota de audio guardada correctamente",
+            data: result
+        });
+    } catch (err) {
+        console.error('[medicalFileController] uploadAudioNote error:', err);
+        res.status(500).json({ success: false, message: "Error interno al guardar nota de audio" });
+    }
+};
+
 exports.getPatientFiles = async (req, res) => {
     try {
         const patientId = req.query?.patient_id || req.query?.patientId || req.body?.patient_id || req.body?.patientId;
