@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
     container: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: 10,
     },
     userInfoWrap: {
         alignItems: 'flex-end',
@@ -65,26 +65,29 @@ const styles = StyleSheet.create({
         marginRight: 2,
     },
     userNameText: {
-        fontSize: 12,
+        fontSize: 14,
         fontWeight: 'bold',
         color: Colors.textMain,
-        maxWidth: 110,
+        maxWidth: 130,
     },
     userRoleBadge: {
-        fontSize: 10,
+        fontSize: 12,
+        fontWeight: '600',
         color: Colors.textSecondary,
+        marginTop: 1,
     },
     logoutButton: {
-        paddingHorizontal: 10,
-        paddingVertical: 5,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
         borderRadius: 8,
         backgroundColor: Colors.dangerLight,
         alignItems: 'center',
         justifyContent: 'center',
+        minHeight: 36,
     },
     logoutText: {
         color: Colors.danger,
         fontWeight: 'bold',
-        fontSize: 12,
+        fontSize: 13,
     },
 });

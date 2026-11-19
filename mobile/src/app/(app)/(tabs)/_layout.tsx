@@ -39,13 +39,13 @@ export default function TabsLayout() {
                 tabBarStyle: {
                     backgroundColor: Colors.cardBackground,
                     borderTopColor: Colors.border,
-                    height: 56 + bottomPadding,
-                    paddingBottom: bottomPadding,
+                    height: 62 + bottomPadding,
+                    paddingBottom: bottomPadding + 4,
                     paddingTop: 8,
                 },
                 tabBarLabelStyle: {
-                    fontSize: 12,
-                    fontWeight: '600',
+                    fontSize: 13,
+                    fontWeight: 'bold',
                 },
             }}
         >
@@ -70,6 +70,6 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
     tabIcon: {
-        fontSize: 20,
+        fontSize: 22,
     },
 });
