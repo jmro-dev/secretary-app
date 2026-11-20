@@ -2,6 +2,7 @@ import React from 'react';
 import { TabNav } from '@/components/molecules/TabNav';
 import { TabButton } from '@/components/atoms/TabButton';
 import { Icon } from '@/components/atoms/Icon';
+import { startSafeViewTransition } from '@/utils/viewTransition';
 import sharedStyles from '@/styles/shared.module.css';
 import styles from './FeatureToolbar.module.css';
 
@@ -20,6 +21,13 @@ export const FeatureToolbar = ({
     actions,
     className = ''
 }) => {
+    const handleTabClick = (tabId) => {
+        if (tabId === activeTab) return;
+        startSafeViewTransition(() => {
+            onTabChange(tabId);
+        });
+    };
+
     return (
         <div className={`${styles.FeatureToolbar__root} ${className} ${sharedStyles.AnimateFadeIn} no-print`}>
             <div className={`${styles.FeatureToolbar__content}`}>
@@ -29,7 +37,7 @@ export const FeatureToolbar = ({
                             <TabButton
                                 key={tab.id}
                                 isActive={activeTab === tab.id}
-                                onClick={() => onTabChange(tab.id)}
+                                onClick={() => handleTabClick(tab.id)}
                                 className={styles.FeatureToolbar__tabButton}
                                 icon={tab.icon && <Icon name={tab.icon} size="1.1rem" />}
                             >
