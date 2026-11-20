@@ -186,14 +186,11 @@ export class AIService {
   }
 
   private async callOllama(prompt: string, instruction: string): Promise<Omit<AIAnalysisResult, 'latencyMs' | 'engineUsed'> | null> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
-
     try {
       const response = await fetch(`${this.ollamaUrl}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
+        signal: AbortSignal.timeout(20000),
         body: JSON.stringify({
           model: this.ollamaModel,
           system: instruction,
@@ -210,7 +207,6 @@ export class AIService {
         })
       });
 
-      clearTimeout(timeout);
       if (!response.ok) return null;
 
       const data = await response.json() as { response?: string };

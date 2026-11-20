@@ -261,6 +261,7 @@ export const WhatsappChatHistory = ({ patientId, phone, t, hideHeader = false })
                     onChange={(e) => dispatch({ type: 'SET_NEW_MESSAGE', payload: e.target.value })}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
+                            if (e.isComposing || e.keyCode === 229) return;
                             e.preventDefault();
                             handleSendMessage();
                         }

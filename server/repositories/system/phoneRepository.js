@@ -25,6 +25,10 @@ class PhoneRepository {
             [entityType, entityIds]
         );
 
+        if (typeof Object.groupBy === 'function') {
+            return Object.groupBy(rows, (phone) => phone.entity_id);
+        }
+
         return rows.reduce((acc, phone) => {
             if (!acc[phone.entity_id]) acc[phone.entity_id] = [];
             acc[phone.entity_id].push(phone);

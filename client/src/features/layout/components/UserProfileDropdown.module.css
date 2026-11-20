@@ -93,6 +93,7 @@
     position: absolute;
     top: calc(100% + 0.5rem);
     right: 0;
+    margin: 0;
     width: 16.5rem;
     background: var(--dashboard-card-bg, #18181b);
     border: 1px solid var(--border-color, rgb(255 255 255 / 10%));
@@ -102,6 +103,13 @@
     z-index: 1000;
     padding: 0.5rem 0;
     animation: fade-in-scale 0.15s ease-out;
+}
+
+.UserProfileDropdown__panel:popover-open {
+    position: absolute;
+    inset: auto 0 auto auto;
+    top: calc(100% + 0.5rem);
+    right: 0;
 }
 
 .UserProfileDropdown__header {

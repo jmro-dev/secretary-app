@@ -104,7 +104,7 @@ class BillingService {
 
                         resolve({ csr: csrContent, keyPath: relativeKeyPath });
                     } catch (readError) {
-                        reject(new Error('Failed to read generated CSR: ' + readError.message));
+                        reject(new Error('Failed to read generated CSR: ' + readError.message, { cause: readError }));
                     }
                 });
             });
