@@ -69,7 +69,7 @@
 }
 
 .TagInputField__tagText {
-    word-break: break-word;
+    overflow-wrap: break-word;
 }
 
 .TagInputField__removeBtn {
