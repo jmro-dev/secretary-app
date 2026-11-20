@@ -59,7 +59,6 @@ export const MessageTemplateEditor = ({
             />
 
             <div className={`${styles.MessageTemplateEditor__variables}`}>
-                <p className={`${styles.MessageTemplateEditor__variablesLabel}`}>{t('available_variables')}</p>
                 <div className={`${styles.MessageTemplateEditor__buttons}`}>
                     {variables.map(v => (
                         <Button
