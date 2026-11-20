@@ -77,6 +77,7 @@ export const RegisterForm = () => {
                             onChange={updateRegisterData}
                             placeholder={t('username')}
                             disabled={loading}
+                            autoComplete="username"
                             required
                         />
                     </FormGroup>
@@ -89,6 +90,7 @@ export const RegisterForm = () => {
                             onChange={updateRegisterData}
                             placeholder="••••••••"
                             disabled={loading}
+                            autoComplete="new-password"
                             required
                         />
                     </FormGroup>

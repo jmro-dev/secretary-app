@@ -35,6 +35,9 @@ export const Calendar = ({
 
     // Map appointments by YYYY-MM-DD key for efficient lookup in the grid
     const appointmentsByDate = useMemo(() => {
+        if (typeof Object.groupBy === 'function') {
+            return Object.groupBy(appointments, appt => formatKeyDate(appt.appointment_date));
+        }
         const map = {};
         appointments.forEach(appt => {
             const dateStr = formatKeyDate(appt.appointment_date);
