@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import { 
+  InboundMessageRequestSchema,
   PatientMessageRequestSchema, 
   KnowledgeDocumentRequestSchema 
 } from './schemas.js';
@@ -90,9 +91,9 @@ export function buildApp() {
     });
   });
 
-  // Procesamiento de mensaje de paciente
-  app.post('/api/v1/patient-message', async (request, reply) => {
-    const parseResult = PatientMessageRequestSchema.safeParse(request.body);
+  // Procesamiento de mensaje genérico / entrante
+  const handleInboundMessage = async (request: any, reply: any) => {
+    const parseResult = InboundMessageRequestSchema.safeParse(request.body);
     if (!parseResult.success) {
       return reply.status(400).send({
         error: 'BAD_REQUEST',
@@ -209,7 +210,12 @@ export function buildApp() {
       latencyMs: analysis.latencyMs,
       engineUsed: analysis.engineUsed
     });
-  });
+  };
+
+  // Endpoint agnóstico oficial
+  app.post('/api/v1/inbound-message', handleInboundMessage);
+  // Alias retrocompatible
+  app.post('/api/v1/patient-message', handleInboundMessage);
 
   return app;
 }

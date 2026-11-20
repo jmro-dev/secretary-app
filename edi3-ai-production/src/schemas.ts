@@ -32,10 +32,12 @@ export const SystemConfigSchema = z.object({
 
 const OpenContextSchema = z.record(z.string(), z.any());
 
-export const PatientMessageRequestSchema = z.object({
+export const InboundMessageRequestSchema = z.object({
   tenantId: z.string().regex(/^[a-z0-9_-]+$/).min(2).max(64),
-  patientId: z.number().int().positive().max(2147483647),
-  phone: z.string().regex(/^\+?[1-9]\d{7,14}$/, 'Formato telefónico E.164 inválido'),
+  /** Identificador de usuario o entidad (opcional o reemplazando a patientId) */
+  userId: z.union([z.string(), z.number()]).optional(),
+  patientId: z.number().int().positive().max(2147483647).optional(),
+  phone: z.string().regex(/^\+?[1-9]\d{7,14}$/, 'Formato telefónico E.164 inválido').optional(),
   message: z.string().min(1).max(1000).refine(val => !val.includes('\0'), 'Caracteres nulos prohibidos'),
   systemConfig: SystemConfigSchema.optional(),
   businessContext: OpenContextSchema.optional(),
@@ -46,10 +48,13 @@ export const PatientMessageRequestSchema = z.object({
     data: z.any()
   }).optional(),
   conversationHistory: z.array(z.object({
-    role: z.enum(['user', 'assistant', 'paciente', 'asistente']),
+    role: z.enum(['user', 'assistant', 'system', 'paciente', 'asistente']),
     content: z.string().min(1).max(2000)
   }).strict()).max(10).optional()
 }).strict();
+
+/** @deprecated usar InboundMessageRequestSchema */
+export const PatientMessageRequestSchema = InboundMessageRequestSchema;
 
 export const KnowledgeDocumentRequestSchema = z.object({
   tenantId: z.string().regex(/^[a-z0-9_-]+$/).min(2).max(64),
