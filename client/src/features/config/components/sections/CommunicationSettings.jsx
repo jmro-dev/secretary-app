@@ -76,16 +76,29 @@ export const CommunicationSettings = ({ user, settings = {}, updateSetting, inse
             {subTab === 'appointments' && (
                 <div className={`${shared.ConfigSection} ${shared.AnimateFadeIn}`}>
                     <div className={shared.ConfigSection__body}>
-                        <ConfigField
-                            id="clinic-address"
-                            label={t('physical_address_label')}
-                            type="text"
-                            placeholder={t('address_placeholder_example')}
-                            value={settings.clinic_address || ''}
-                            onChange={(e) => updateSetting('clinic_address', e.target.value)}
-                            disabled={!isAdmin}
-                            hint={t('physical_address_hint')}
-                        />
+                        <div className={`${shared.ConfigGrid} ${shared['ConfigGrid--2col']}`}>
+                            <ConfigField
+                                id="clinic-name"
+                                label={t('clinic_name_label')}
+                                type="text"
+                                placeholder="Cima Salud"
+                                value={settings.clinic_name || ''}
+                                onChange={(e) => updateSetting('clinic_name', e.target.value)}
+                                disabled={!isAdmin}
+                                hint={t('clinic_name_hint')}
+                            />
+
+                            <ConfigField
+                                id="clinic-address"
+                                label={t('physical_address_label')}
+                                type="text"
+                                placeholder={t('address_placeholder_example')}
+                                value={settings.clinic_address || ''}
+                                onChange={(e) => updateSetting('clinic_address', e.target.value)}
+                                disabled={!isAdmin}
+                                hint={t('physical_address_hint')}
+                            />
+                        </div>
 
                         <div className={`${shared.ConfigGrid} ${shared['ConfigGrid--2col']}`}>
                             <MessageTemplateEditor
