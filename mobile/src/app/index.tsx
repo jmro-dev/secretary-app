@@ -1,11 +1,12 @@
 import React from 'react';
 import { Redirect } from 'expo-router';
 import { useAuth } from '@/shared/context/AuthContext';
+import { getDefaultAppRoute } from '@/types/auth';
 import { View, ActivityIndicator } from 'react-native';
 import { Colors } from '@/shared/theme/colors';
 
 export default function RootIndex() {
-    const { isAuthenticated, isLoading } = useAuth();
+    const { isAuthenticated, isLoading, user } = useAuth();
 
     if (isLoading) {
         return (
@@ -16,7 +17,7 @@ export default function RootIndex() {
     }
 
     if (isAuthenticated) {
-        return <Redirect href="/(app)/appointments" />;
+        return <Redirect href={getDefaultAppRoute(user?.role)} />;
     }
 
     return <Redirect href="/(auth)/login" />;

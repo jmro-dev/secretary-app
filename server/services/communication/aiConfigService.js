@@ -5,6 +5,7 @@ const CACHE_TTL_MS = 60 * 1000;
 
 const AI_SETTING_KEYS = [
     'clinic_name',
+    'clinic_type',
     'clinic_address',
     'secretary_hours',
     'ai_system_role',
@@ -135,6 +136,7 @@ async function loadConfig(tenantId, { force = false } = {}) {
     const value = {
         clinic: {
             name: settings.clinic_name || null,
+            type: settings.clinic_type || 'Consultorio',
             address: settings.clinic_address || null,
             secretaryHours: settings.secretary_hours || null
         },
@@ -162,6 +164,7 @@ async function loadConfig(tenantId, { force = false } = {}) {
 function buildBusinessContext({ config, doctors, currentTime }) {
     return {
         clinicName: config.clinic.name,
+        clinicType: config.clinic.type,
         address: config.clinic.address,
         secretaryHours: config.clinic.secretaryHours,
         currentTime,

@@ -142,9 +142,17 @@ class AuthService {
         const token = this._generateToken(user.id, username, user.role, user.token_version, permissions);
         const name = await this._getDisplayName(user);
 
+        let doctorId = null;
+        if (user.role === 'doctor') {
+            const doctorProfile = await doctorRepository.findByUserId(user.id);
+            if (doctorProfile) {
+                doctorId = doctorProfile.id;
+            }
+        }
+
         logAction({ user: { user_id: user.id, username: user.username }, ip: req.ip }, 'LOGIN', 'Success');
 
-        return { user_id: user.id, username: user.username, role: user.role, token, name, permissions };
+        return { user_id: user.id, username: user.username, role: user.role, token, name, permissions, doctor_id: doctorId };
     }
 
     // --- Private Helpers ---

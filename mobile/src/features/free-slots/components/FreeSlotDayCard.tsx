@@ -6,11 +6,13 @@ import { Colors } from '@/shared/theme/colors';
 interface FreeSlotDayCardProps {
     day: FreeSlotDay;
     onSelectSlot: (day: FreeSlotDay, slot: FreeSlot) => void;
+    readOnly?: boolean;
 }
 
 export const FreeSlotDayCard: React.FC<FreeSlotDayCardProps> = ({
     day,
     onSelectSlot,
+    readOnly = false,
 }) => {
     const slots = Array.isArray(day.slots) ? day.slots : [];
     if (slots.length === 0) return null;
@@ -45,9 +47,11 @@ export const FreeSlotDayCard: React.FC<FreeSlotDayCardProps> = ({
                             style={[
                                 styles.slotPill,
                                 isOutOfHours && styles.slotPillOutOfHours,
+                                readOnly && styles.slotPillReadOnly,
                             ]}
-                            onPress={() => onSelectSlot(day, slot)}
-                            activeOpacity={0.7}
+                            onPress={() => !readOnly && onSelectSlot(day, slot)}
+                            activeOpacity={readOnly ? 1 : 0.7}
+                            disabled={readOnly}
                         >
                             <Text
                                 style={[
@@ -135,6 +139,9 @@ const styles = StyleSheet.create({
     slotPillOutOfHours: {
         backgroundColor: Colors.warningLight,
         borderColor: Colors.warning,
+    },
+    slotPillReadOnly: {
+        opacity: 0.9,
     },
     slotTimeText: {
         fontSize: 14,

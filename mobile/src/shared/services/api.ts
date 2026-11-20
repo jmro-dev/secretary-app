@@ -3,18 +3,51 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { User } from '@/types/auth';
 
-const getBaseHost = (): string => {
+const PROD_API_URL = 'https://secretaria.cimasalud.duckdns.org/api';
+
+export const getBaseHost = (): string => {
     if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
-        return window.location.hostname || 'localhost';
+        return window.location.origin;
     }
-    const debuggerHost = Constants.expoConfig?.hostUri;
-    if (debuggerHost) {
-        return debuggerHost.split(':')[0];
-    }
-    return '192.168.0.172';
+    // Conectar por defecto siempre al backend activo de la Raspberry Pi
+    return PROD_API_URL;
 };
 
-export const API_BASE_URL = `http://${getBaseHost()}:5000/api`;
+// Clave para sobrescribir el entorno manualmente si se desea en pruebas
+const ENV_STORAGE_KEY = 'app_environment_override';
+
+export const getApiUrl = async (): Promise<string> => {
+    try {
+        const override = await AsyncStorage.getItem(ENV_STORAGE_KEY);
+        if (override === 'dev') {
+            const host = Constants.expoConfig?.hostUri?.split(':')[0] || '192.168.50.30';
+            return `http://${host}:5000/api`;
+        }
+    } catch {
+        // Ignorar error de lectura
+    }
+    return PROD_API_URL;
+};
+
+export const setEnvironmentOverride = async (env: 'dev' | 'prod' | 'auto'): Promise<void> => {
+    if (env === 'auto') {
+        await AsyncStorage.removeItem(ENV_STORAGE_KEY);
+    } else {
+        await AsyncStorage.setItem(ENV_STORAGE_KEY, env);
+    }
+};
+
+export const getEnvironmentOverride = async (): Promise<'dev' | 'prod' | 'auto'> => {
+    try {
+        const val = await AsyncStorage.getItem(ENV_STORAGE_KEY);
+        if (val === 'dev' || val === 'prod') return val;
+    } catch {
+        // fallback
+    }
+    return 'auto';
+};
+
+export const API_BASE_URL = getBaseHost().endsWith('/api') ? getBaseHost() : `${getBaseHost()}/api`;
 
 export const getAuthToken = async (): Promise<string | null> => {
     try {
@@ -36,6 +69,7 @@ export const getStoredUser = async (): Promise<User | null> => {
 export async function apiFetch<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const token = await getAuthToken();
     const userInfo = await getStoredUser();
+    const baseUrl = await getApiUrl();
 
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -50,7 +84,7 @@ export async function apiFetch<T = any>(endpoint: string, options: RequestInit =
         headers['x-doctor-id'] = String(userInfo.doctor_id || userInfo.profile_id);
     }
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const response = await fetch(`${baseUrl}${endpoint}`, {
         ...options,
         headers,
     });
