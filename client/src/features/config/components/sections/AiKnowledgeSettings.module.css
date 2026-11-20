@@ -1,7 +1,15 @@
 .AiKnowledgeSettings__root {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1.25rem;
+}
+
+.AiKnowledgeSettings__subTabs {
+    margin-bottom: 0.5rem;
+}
+
+.AiKnowledgeSettings__subTabBtn {
+    font-size: 0.95rem;
 }
 
 .AiKnowledgeSettings__field {
@@ -51,7 +59,8 @@
 .AiKnowledgeSettings__row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1rem;
+    gap: 1.25rem;
+    margin-bottom: 1rem;
 }
 
 .AiKnowledgeSettings__actions {
@@ -79,7 +88,7 @@
     display: grid;
     grid-template-columns: 240px 1fr;
     gap: 1.5rem;
-    min-height: 400px;
+    min-height: 360px;
 }
 
 .AiKnowledgeSettings__docList {
@@ -88,6 +97,8 @@
     gap: 0.5rem;
     border-right: 1px solid var(--border-color, #e2e8f0);
     padding-right: 1rem;
+    max-height: 480px;
+    overflow-y: auto;
 }
 
 .AiKnowledgeSettings__docTab {
@@ -176,6 +187,7 @@
         border-bottom: 1px solid var(--border-color, #e2e8f0);
         padding-right: 0;
         padding-bottom: 1rem;
+        max-height: 200px;
     }
 
     .AiKnowledgeSettings__editorActions {
