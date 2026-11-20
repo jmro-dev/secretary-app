@@ -194,11 +194,6 @@ export const AiKnowledgeSettings = ({ settings = {}, updateSetting }) => {
             {/* Pestaña 1: Rol, Guardrails y Términos con Tags */}
             {subTab === 'behavior' && (
                 <div className={`${shared.ConfigSection} ${shared.AnimateFadeIn}`}>
-                    <div className={shared.ConfigSection__header}>
-                        <Icon name="smart_toy" size="1.2rem" className={shared.ConfigSection__icon} />
-                        <h4 className={shared.ConfigSection__title}>Comportamiento y Rol del Asistente Virtual</h4>
-                    </div>
-
                     <div className={shared.ConfigSection__body}>
                         <ConfigField
                             id="ai-role"
@@ -262,16 +257,8 @@ export const AiKnowledgeSettings = ({ settings = {}, updateSetting }) => {
             {/* Pestaña 2: Base de Conocimiento RAG (Documentos Normativos) */}
             {subTab === 'documents' && (
                 <div className={`${shared.ConfigSection} ${shared.AnimateFadeIn}`}>
-                    <div className={shared.ConfigSection__header}>
-                        <Icon name="library_books" size="1.2rem" className={shared.ConfigSection__icon} />
-                        <h4 className={shared.ConfigSection__title}>Base de Conocimiento RAG (Normativas de la Clínica)</h4>
-                    </div>
-
                     <div className={shared.ConfigSection__body}>
                         <div className={styles.AiKnowledgeSettings__headerAction}>
-                            <p className={styles.AiKnowledgeSettings__desc}>
-                                Documentos inyectados al motor de IA para resolver convenios, honorarios, modalidades de atención y recetas sin alucinaciones.
-                            </p>
                             <Button
                                 variant="secondary"
                                 onClick={handleStartNewDoc}
