@@ -73,6 +73,7 @@ export const LoginForm = () => {
                         placeholder={t('username_placeholder')}
                         disabled={loading}
                         className={styles.LoginForm__loginInput}
+                        autoComplete="username"
                         required
                     />
                 </FormGroup>
@@ -85,6 +86,7 @@ export const LoginForm = () => {
                         placeholder="••••••••"
                         disabled={loading}
                         className={styles.LoginForm__loginInput}
+                        autoComplete="current-password"
                         required
                     />
                 </FormGroup>

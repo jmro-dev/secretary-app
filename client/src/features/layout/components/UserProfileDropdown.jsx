@@ -15,6 +15,7 @@ export const UserProfileDropdown = ({
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
+    const panelRef = useRef(null);
 
     const [theme, setTheme] = useState(() => {
         if (typeof window !== 'undefined' && window.localStorage) {
@@ -31,6 +32,14 @@ export const UserProfileDropdown = ({
         root.setAttribute('data-theme', theme);
         document.body.setAttribute('data-theme', theme);
         document.body.classList.add(`theme-${theme}`);
+
+        // Sync color-scheme
+        const colorScheme = theme === 'light' ? 'light' : 'dark';
+        root.style.colorScheme = colorScheme;
+        const metaColorScheme = document.querySelector('meta[name="color-scheme"]');
+        if (metaColorScheme) {
+            metaColorScheme.content = colorScheme;
+        }
         if (typeof window !== 'undefined' && window.localStorage) {
             window.localStorage.setItem('theme', theme);
         }
@@ -43,7 +52,7 @@ export const UserProfileDropdown = ({
         });
     };
 
-    // Close on click outside and escape
+    // Close on click outside and escape fallback for older runtimes
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -65,6 +74,15 @@ export const UserProfileDropdown = ({
             document.removeEventListener('keydown', handleKeyDown);
         };
     }, [isOpen]);
+
+    // Handle Popover native toggle event if browser supports Popover API
+    const handleTogglePopover = (e) => {
+        if (e.newState === 'open') {
+            setIsOpen(true);
+        } else if (e.newState === 'closed') {
+            setIsOpen(false);
+        }
+    };
 
     if (!user) return null;
 
@@ -98,8 +116,10 @@ export const UserProfileDropdown = ({
         <div className={styles.UserProfileDropdown__root} ref={dropdownRef}>
             <button
                 type="button"
+                id="user-profile-trigger"
                 className={`${styles.UserProfileDropdown__trigger} ${isOpen ? styles.UserProfileDropdown__triggerOpen : ''}`}
                 onClick={() => setIsOpen(prev => !prev)}
+                popoverTarget="user-profile-panel"
                 aria-expanded={isOpen}
                 aria-haspopup="true"
             >
@@ -116,7 +136,14 @@ export const UserProfileDropdown = ({
             </button>
 
             {isOpen && (
-                <div className={styles.UserProfileDropdown__panel} role="menu">
+                <div
+                    ref={panelRef}
+                    id="user-profile-panel"
+                    popover="auto"
+                    onToggle={handleTogglePopover}
+                    className={styles.UserProfileDropdown__panel}
+                    role="menu"
+                >
                     {/* Header with user info */}
                     <div className={styles.UserProfileDropdown__header}>
                         <div className={styles.UserProfileDropdown__headerAvatar}>

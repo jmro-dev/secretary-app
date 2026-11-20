@@ -42,7 +42,7 @@ export const BalanceCashFlowTable = ({ appointments = EMPTY_ARRAY, t }) => {
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredDays.slice().reverse().map((day) => {
+                        {filteredDays.toReversed().map((day) => {
                             const cash = Number(day.total_efectivo || 0);
                             const total = Number(day.total_paid || 0);
                             const others = total - cash;

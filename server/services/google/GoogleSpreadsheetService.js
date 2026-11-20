@@ -192,6 +192,9 @@ class GoogleSpreadsheetService {
     }
 
     _groupBySheet(txs) {
+        if (typeof Object.groupBy === 'function') {
+            return Object.groupBy(txs, (tx) => helper.getSheetName(tx));
+        }
         const bySheet = {};
         for (const tx of txs) {
             const name = helper.getSheetName(tx);

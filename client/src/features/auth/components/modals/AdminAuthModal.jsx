@@ -56,6 +56,7 @@ export const AdminAuthModal = ({ isOpen, onClose, onConfirm }) => {
                         placeholder="••••••••"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
+                        autoComplete="current-password"
                         ref={inputRef}
                     />
                 </div>

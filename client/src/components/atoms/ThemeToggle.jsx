@@ -27,6 +27,14 @@ export const ThemeToggle = ({ className = '' }) => {
         root.setAttribute('data-theme', theme);
         document.body.setAttribute('data-theme', theme);
         document.body.classList.add(`theme-${theme}`);
+
+        // Sync color-scheme
+        const colorScheme = theme === 'light' ? 'light' : 'dark';
+        root.style.colorScheme = colorScheme;
+        const metaColorScheme = document.querySelector('meta[name="color-scheme"]');
+        if (metaColorScheme) {
+            metaColorScheme.content = colorScheme;
+        }
         
         if (typeof window !== 'undefined' && window.localStorage) {
             window.localStorage.setItem('theme', theme);
