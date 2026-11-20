@@ -74,7 +74,11 @@ export const SystemConfigPage = () => {
         })), [visibleSections]);
 
     return (
-        <MainLayout title={t('config')}>
+        <MainLayout
+            title={t('config')}
+            hideSearch={true}
+            hideDoctorSelector={true}
+        >
             <div className={styles.SystemConfigPage__root}>
                 <FeatureToolbar
                     tabs={tabs.length > 0 ? tabs : [
