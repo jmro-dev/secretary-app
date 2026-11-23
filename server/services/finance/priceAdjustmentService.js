@@ -8,6 +8,14 @@ const ARGENTINADATOS_URL = 'https://api.argentinadatos.com/v1/finanzas/indices/i
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 const TIMEOUT_MS = 5000; // 5 seconds timeout
 const PRICE_PERIOD_REGEX = /^[0-9]{4}-Q[1-4]$/;
+const PRICE_FIELD_COLUMNS = {
+    consultation_price: 'consultation_price',
+    prescription_price: 'prescription_price',
+    medical_license_price: 'medical_license_price',
+    certificate_price: 'certificate_price',
+    virtual_consultation_price: 'virtual_consultation_price',
+    base_price: 'base_price'
+};
 
 // In-memory cache for inflation queries: key -> { timestamp, data }
 const inflationCache = new Map();
@@ -441,6 +449,13 @@ class PriceAdjustmentService {
             ]
         );
 
+        if (resolvedAppliedPrice !== undefined) {
+            await this.applyAppliedPriceOverride({
+                batchId: finalBatchId,
+                appliedPrice: resolvedAppliedPrice
+            });
+        }
+
         const countRows = await pool.query(
             'SELECT COUNT(*) AS affectedRows FROM price_changes WHERE batch_id = ?',
             [finalBatchId]
@@ -496,6 +511,40 @@ class PriceAdjustmentService {
             adjustmentReason: resolvedReason,
             source: resolvedSource
         };
+    }
+
+    async applyAppliedPriceOverride({ batchId, appliedPrice }) {
+        const [target] = await pool.query(
+            `SELECT scope, target_id, field
+               FROM price_changes
+              WHERE batch_id = ?
+              ORDER BY id ASC
+              LIMIT 1`,
+            [batchId]
+        );
+
+        if (!target) {
+            throw new Error('Cannot apply manual price: no price changes found for batch');
+        }
+
+        const table = target.scope === 'doctors'
+            ? 'doctors'
+            : (target.scope === 'institutions' ? 'institutions' : null);
+        const column = PRICE_FIELD_COLUMNS[target.field];
+        if (!table || !column) {
+            throw new Error(`Cannot apply manual price for unsupported target ${target.scope}.${target.field}`);
+        }
+
+        await pool.query(
+            `UPDATE ${table} SET ${column} = ? WHERE id = ?`,
+            [appliedPrice, Number(target.target_id)]
+        );
+        await pool.query(
+            `UPDATE price_changes
+                SET new_value = ?, status = 'accepted_with_adjustment'
+              WHERE batch_id = ? AND scope = ? AND target_id = ? AND field = ?`,
+            [appliedPrice, batchId, target.scope, target.target_id, target.field]
+        );
     }
 
     async recordLedgerEntries({

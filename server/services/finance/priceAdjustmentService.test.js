@@ -346,6 +346,15 @@ describe('PriceAdjustmentService', () => {
             expect(result.status).toBe('accepted_with_adjustment');
             expect(result.source).toBe('manual');
             expect(result.ledgerRecorded).toBe(true);
+
+            expect(pool.query).toHaveBeenCalledWith(
+                'UPDATE doctors SET consultation_price = ? WHERE id = ?',
+                [90000, 1]
+            );
+            expect(pool.query).toHaveBeenCalledWith(
+                expect.stringContaining('UPDATE price_changes'),
+                [90000, batchId, 'doctors', 1, 'consultation_price']
+            );
         });
 
         it('keeps per-row prices in the ledger when a manual applied price is supplied', async () => {
@@ -400,6 +409,12 @@ describe('PriceAdjustmentService', () => {
             expect(ledgerCalls[1][1][9]).toBe(57500);
             expect(ledgerCalls[1][1][10]).toBe(60000);
             expect(ledgerCalls[1][1][16]).toBe('accepted_with_adjustment');
+
+            const manualPriceUpdates = pool.query.mock.calls.filter(
+                ([sql]) => typeof sql === 'string' && sql.includes('UPDATE doctors SET consultation_price = ?')
+            );
+            expect(manualPriceUpdates).toHaveLength(1);
+            expect(manualPriceUpdates[0][1]).toEqual([90000, 1]);
         });
 
         it('rejects percent <= -100', async () => {
