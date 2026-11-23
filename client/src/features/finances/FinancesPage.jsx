@@ -166,6 +166,80 @@ export const FinancesPage = ({ MedicationInputComponent }) => {
                                 />
                             )}
 
+                            {isAdminOrSecretary && (
+                                <div className={styles.FinancesPage__pricePanel}>
+                                    <div className={styles.FinancesPage__pricePanelHeader}>
+                                        <h3 className={styles.FinancesPage__pricePanelTitle}>
+                                            <Icon name="monitoring" size="1rem" />
+                                            Price adjustment overview ({new Date().getFullYear()})
+                                        </h3>
+                                        <span className={styles.FinancesPage__pricePanelNote}>Annual closing is an additional confronte; quarterly evaluation remains active.</span>
+                                    </div>
+
+                                    <div className={styles.FinancesPage__priceGrid}>
+                                        <div className={styles.FinancesPage__priceCard}>
+                                            <h4 className={styles.FinancesPage__priceCardTitle}>Annual closing summary</h4>
+                                            {controller.priceClosingSummary ? (
+                                                <div className={styles.FinancesPage__kvList}>
+                                                    <div><span>Inflation YoY</span><strong>{Number(controller.priceClosingSummary.inflationYoY).toFixed(4)}</strong></div>
+                                                    <div><span>Applied cumulative</span><strong>{Number(controller.priceClosingSummary.appliedCumulative).toFixed(4)}</strong></div>
+                                                    <div><span>Margin</span><strong>{Number(controller.priceClosingSummary.margin).toFixed(4)}</strong></div>
+                                                    <div><span>Verdict</span><strong>{controller.priceClosingSummary.verdict}</strong></div>
+                                                </div>
+                                            ) : <p className={styles.FinancesPage__empty}>No closing summary for this year.</p>}
+                                        </div>
+
+                                        <div className={styles.FinancesPage__priceCard}>
+                                            <h4 className={styles.FinancesPage__priceCardTitle}>Due price-variation notices (7 days)</h4>
+                                            {(controller.duePriceNotices || []).length > 0 ? (
+                                                <div className={styles.FinancesPage__miniTableWrap}>
+                                                    <table className={styles.FinancesPage__miniTable}>
+                                                        <thead><tr><th>Booking</th><th>Quoted</th><th>Current</th><th>Delta</th><th>Days</th><th>Notified</th></tr></thead>
+                                                        <tbody>
+                                                            {controller.duePriceNotices.map((n) => (
+                                                                <tr key={`${n.bookingId}-${n.quotedPrice}-${n.daysBefore}`}>
+                                                                    <td>{n.bookingId}</td>
+                                                                    <td>${Number(n.quotedPrice).toLocaleString()}</td>
+                                                                    <td>${Number(n.currentPrice).toLocaleString()}</td>
+                                                                    <td>${Number(n.delta).toLocaleString()}</td>
+                                                                    <td>{n.daysBefore}</td>
+                                                                    <td>{n.notifiedAt || 'null'}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            ) : <p className={styles.FinancesPage__empty}>No due notices in 7-day window.</p>}
+                                        </div>
+                                    </div>
+
+                                    <div className={styles.FinancesPage__priceCard}>
+                                        <h4 className={styles.FinancesPage__priceCardTitle}>Adjustment ledger</h4>
+                                        {(controller.priceLedger || []).length > 0 ? (
+                                            <div className={styles.FinancesPage__miniTableWrap}>
+                                                <table className={styles.FinancesPage__miniTable}>
+                                                    <thead><tr><th>Period</th><th>Suggested</th><th>Applied</th><th>Delta</th><th>Delta %</th><th>Reason</th><th>Source</th><th>Status</th></tr></thead>
+                                                    <tbody>
+                                                        {controller.priceLedger.map((row) => (
+                                                            <tr key={`${row.period}-${row.suggestedPrice}-${row.appliedPrice}-${row.reason || row.adjustmentReason}-${row.source}`}>
+                                                                <td>{row.period}</td>
+                                                                <td>${Number(row.suggestedPrice).toLocaleString()}</td>
+                                                                <td>${Number(row.appliedPrice).toLocaleString()}</td>
+                                                                <td>${Number(row.delta).toLocaleString()}</td>
+                                                                <td>{Number(row.deltaPct).toFixed(3)}%</td>
+                                                                <td>{row.adjustmentReason}</td>
+                                                                <td>{row.source}</td>
+                                                                <td>{row.status || '-'}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        ) : <p className={styles.FinancesPage__empty}>No ledger rows for this year.</p>}
+                                    </div>
+                                </div>
+                            )}
+
                             <TransactionsTable
                                 transactions={filteredTransactions}
                                 totalCount={controller.totalCount}

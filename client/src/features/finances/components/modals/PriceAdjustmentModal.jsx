@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Modal } from '@/components/molecules/Modal';
 import { Button } from '@/components/atoms/Button';
 import { Icon } from '@/components/atoms/Icon';
@@ -9,10 +9,16 @@ import { PriceAdjustmentPreviewTable } from './PriceAdjustmentPreviewTable';
 
 import styles from './PriceAdjustmentModal.module.css';
 
+const getCurrentPeriod = () => {
+    const now = new Date();
+    const quarter = Math.floor(now.getMonth() / 3) + 1;
+    return `${now.getFullYear()}-Q${quarter}`;
+};
+
 /**
  * PriceAdjustmentModal Component.
- * Implements S9: Quarterly price adjustment with inflation suggestion,
- * commercial rounding to 500, preview and transactional confirmation (#711).
+ * Implements quarterly price adjustment with compounding preview, manual overrides,
+ * and contract payload fields for closing/ledger workflows (#711).
  */
 export const PriceAdjustmentModal = ({
     isOpen,
@@ -25,15 +31,25 @@ export const PriceAdjustmentModal = ({
     const [inflation, setInflation] = useState(null);
     const [isLoadingInitial, setIsLoadingInitial] = useState(true);
 
+    const [period, setPeriod] = useState(getCurrentPeriod());
     const [percent, setPercent] = useState('');
     const [step, setStep] = useState(500);
+    const [source, setSource] = useState('auto');
+    const [adjustmentReason, setAdjustmentReason] = useState('');
     const [scopeDoctors, setScopeDoctors] = useState(true);
     const [scopeInstitutions, setScopeInstitutions] = useState(true);
+    const [appliedByRow, setAppliedByRow] = useState({});
 
     const [preview, setPreview] = useState(null);
     const [isPreviewLoading, setIsPreviewLoading] = useState(false);
     const [isApplying, setIsApplying] = useState(false);
     const [errorMessage, setErrorMessage] = useState(null);
+
+    const compoundingFactor = useMemo(() => {
+        const num = Number(percent);
+        if (Number.isNaN(num)) return null;
+        return 1 + (num / 100);
+    }, [percent]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -50,6 +66,9 @@ export const PriceAdjustmentModal = ({
                 setInflation(inflationRes);
                 if (inflationRes?.available && inflationRes.percent) {
                     setPercent(String(inflationRes.percent));
+                    setSource('auto');
+                } else {
+                    setSource('manual');
                 }
             } catch (err) {
                 if (!active) return;
@@ -70,14 +89,26 @@ export const PriceAdjustmentModal = ({
     const handleApplySuggested = () => {
         if (inflation?.available && inflation.percent) {
             setPercent(String(inflation.percent));
+            setSource('auto');
             setPreview(null);
+            setAppliedByRow({});
         }
+    };
+
+    const getRowKey = (item) => `${item.scope}-${item.targetId}-${item.field}`;
+
+    const handleAppliedPriceChange = (rowKey, value) => {
+        setAppliedByRow((prev) => ({ ...prev, [rowKey]: value }));
     };
 
     const handlePreview = async () => {
         const numPercent = Number(percent);
-        if (isNaN(numPercent) || numPercent <= -100) {
-            setErrorMessage('El porcentaje debe ser un número mayor a -100%');
+        if (Number.isNaN(numPercent) || numPercent <= -100) {
+            setErrorMessage('Percent must be greater than -100%.');
+            return;
+        }
+        if (!/^[0-9]{4}-Q[1-4]$/.test(period)) {
+            setErrorMessage('Period must use YYYY-QN format.');
             return;
         }
 
@@ -86,7 +117,7 @@ export const PriceAdjustmentModal = ({
         if (scopeInstitutions) scope.push('institutions');
 
         if (scope.length === 0) {
-            setErrorMessage('Debe seleccionar al menos un alcance (Médicos o Instituciones)');
+            setErrorMessage('Select at least one scope (doctors or institutions).');
             return;
         }
 
@@ -96,12 +127,15 @@ export const PriceAdjustmentModal = ({
             const previewRes = await financeService.previewPriceIncrease({
                 percent: numPercent,
                 step: Number(step) || 500,
-                scope
+                scope,
+                period
             });
             setPreview(previewRes);
+            const rows = previewRes.rows || previewRes.items || [];
+            setAppliedByRow(Object.fromEntries(rows.map((item, idx) => [getRowKey(item, idx), String(item.newValue ?? item.suggestedPrice ?? '')])));
         } catch (err) {
             console.error('[PriceAdjustmentModal] Error fetching preview:', err);
-            setErrorMessage(err.response?.data?.error || err.message || 'Error calculando previsualización');
+            setErrorMessage(err.response?.data?.error || err.message || 'Error calculating preview.');
         } finally {
             setIsPreviewLoading(false);
         }
@@ -114,28 +148,72 @@ export const PriceAdjustmentModal = ({
             return;
         }
 
+        if (Number.isNaN(numPercent) || numPercent <= -100) {
+            setErrorMessage('Percent must be greater than -100%.');
+            return;
+        }
+        if (!/^[0-9]{4}-Q[1-4]$/.test(period)) {
+            setErrorMessage('Period must use YYYY-QN format.');
+            return;
+        }
+
         const scope = [];
         if (scopeDoctors) scope.push('doctors');
         if (scopeInstitutions) scope.push('institutions');
+        if (scope.length === 0) {
+            setErrorMessage('Select at least one scope (doctors or institutions).');
+            return;
+        }
+
+        const rows = preview?.rows || preview?.items || [];
+        if (rows.length === 0) {
+            setErrorMessage('Preview required before applying.');
+            return;
+        }
+
+        const hasInvalidApplied = rows.some((item, idx) => {
+            const key = getRowKey(item, idx);
+            const value = Number(appliedByRow[key]);
+            return Number.isNaN(value) || value < 0;
+        });
+        if (hasInvalidApplied) {
+            setErrorMessage('Applied price must be a valid non-negative number for every row.');
+            return;
+        }
+
+        const rounding = Number(step) || 500;
+        const firstRow = rows[0];
+        const firstKey = getRowKey(firstRow, 0);
+        const basePrice = Number(firstRow.basePrice ?? firstRow.oldValue ?? 0);
+        const suggestedPrice = Number(firstRow.suggestedPrice ?? firstRow.newValue ?? 0);
+        const appliedPrice = Number(appliedByRow[firstKey] ?? suggestedPrice);
 
         setIsApplying(true);
         setErrorMessage(null);
         try {
             const res = await financeService.applyPriceIncrease({
+                period,
+                basePrice,
+                suggestedPrice,
+                appliedPrice,
+                roundingStep: rounding,
+                adjustmentReason: adjustmentReason || 'Manual adjustment',
+                source,
                 percent: numPercent,
-                step: Number(step) || 500,
+                step: rounding,
                 scope,
-                inflationSource: inflation?.available ? inflation.source : 'manual',
-                inflationPeriod: inflation?.available ? inflation.to : null
+                inflationSource: source,
+                inflationPeriod: period
             });
 
             if (alert) {
                 await alert(
-                    `Ajuste de aranceles aplicado exitosamente.\n\n` +
-                    `Porcentaje: +${res.percent}%\n` +
-                    `Redondeo: múltiplo de $${res.step}\n` +
-                    `Aranceles actualizados: ${res.affectedRows} celdas\n` +
-                    `Lote de auditoría: ${res.batchId}`
+                    `Price adjustment applied.\n\n` +
+                    `Period: ${period}\n` +
+                    `Percent: +${res.percent ?? numPercent}%\n` +
+                    `Rounding: ${res.step ?? rounding}\n` +
+                    `Updated rows: ${res.affectedRows ?? rows.length}\n` +
+                    `Batch: ${res.batchId || 'n/a'}`
                 );
             }
 
@@ -143,7 +221,7 @@ export const PriceAdjustmentModal = ({
             onClose();
         } catch (err) {
             console.error('[PriceAdjustmentModal] Error applying price increase:', err);
-            setErrorMessage(err.response?.data?.error || err.message || 'Error al aplicar el ajuste en la base de datos');
+            setErrorMessage(err.response?.data?.error || err.message || 'Error applying price adjustment.');
         } finally {
             setIsApplying(false);
         }
@@ -241,7 +319,19 @@ export const PriceAdjustmentModal = ({
 
                         <div className={styles.PriceAdjustmentModal__formGrid}>
                             <div className={styles.PriceAdjustmentModal__fieldGroup}>
-                                <label className={styles.PriceAdjustmentModal__label}>Porcentaje de aumento (%)</label>
+                                <label className={styles.PriceAdjustmentModal__label}>Period (YYYY-QN)</label>
+                                <input
+                                    type="text"
+                                    className={styles.PriceAdjustmentModal__input}
+                                    value={period}
+                                    onChange={(e) => { setPeriod(e.target.value); setPreview(null); }}
+                                    placeholder="2026-Q2"
+                                />
+                                <span className={styles.PriceAdjustmentModal__helperText}>Quarterly evaluation. Annual closing is an additional year-end confronte, not a replacement.</span>
+                            </div>
+
+                            <div className={styles.PriceAdjustmentModal__fieldGroup}>
+                                <label className={styles.PriceAdjustmentModal__label}>Inflation increase (%)</label>
                                 <input
                                     type="number"
                                     step="0.1"
@@ -251,13 +341,15 @@ export const PriceAdjustmentModal = ({
                                         setPercent(e.target.value);
                                         setPreview(null);
                                     }}
-                                    placeholder="Ej: 12.5"
+                                    placeholder="e.g. 12.5"
                                 />
-                                <span className={styles.PriceAdjustmentModal__helperText}>Ratio de índices compuesto.</span>
+                                <span className={styles.PriceAdjustmentModal__helperText}>
+                                    Compounding factor: <strong>{compoundingFactor !== null ? compoundingFactor.toFixed(6) : 'n/a'}</strong> (1 + pct/100)
+                                </span>
                             </div>
 
                             <div className={styles.PriceAdjustmentModal__fieldGroup}>
-                                <label className={styles.PriceAdjustmentModal__label}>Paso de redondeo comercial ($)</label>
+                                <label className={styles.PriceAdjustmentModal__label}>Commercial rounding step ($)</label>
                                 <input
                                     type="number"
                                     step="100"
@@ -269,32 +361,38 @@ export const PriceAdjustmentModal = ({
                                     }}
                                     placeholder="500"
                                 />
-                                <span className={styles.PriceAdjustmentModal__helperText}>Redondeo al alza: CEIL(valor / paso) × paso.</span>
+                                <span className={styles.PriceAdjustmentModal__helperText}>Rounding up: CEIL(value / step) * step.</span>
+                            </div>
+
+                            <div className={styles.PriceAdjustmentModal__fieldGroup}>
+                                <label className={styles.PriceAdjustmentModal__label}>Source</label>
+                                <select className={styles.PriceAdjustmentModal__input} value={source} onChange={(e) => setSource(e.target.value)}>
+                                    <option value="auto">Auto</option>
+                                    <option value="manual">Manual</option>
+                                </select>
+                                <span className={styles.PriceAdjustmentModal__helperText}>Use manual when operator overrides the suggestion.</span>
+                            </div>
+
+                            <div className={`${styles.PriceAdjustmentModal__fieldGroup} ${styles.PriceAdjustmentModal__fieldGroupWide}`}>
+                                <label className={styles.PriceAdjustmentModal__label}>Adjustment reason</label>
+                                <input
+                                    type="text"
+                                    className={styles.PriceAdjustmentModal__input}
+                                    value={adjustmentReason}
+                                    onChange={(e) => setAdjustmentReason(e.target.value)}
+                                    placeholder="e.g. Specialist demand / commercial decision"
+                                />
                             </div>
 
                             <div className={styles.PriceAdjustmentModal__scopeGroup}>
-                                <label className={styles.PriceAdjustmentModal__label}>Alcance de aplicación</label>
+                                <label className={styles.PriceAdjustmentModal__label}>Scope</label>
                                 <label className={styles.PriceAdjustmentModal__checkboxLabel}>
-                                    <input
-                                        type="checkbox"
-                                        checked={scopeDoctors}
-                                        onChange={(e) => {
-                                            setScopeDoctors(e.target.checked);
-                                            setPreview(null);
-                                        }}
-                                    />
-                                    <span>Aranceles de profesionales médicos (consulta, receta, licencia, cert., virtual)</span>
+                                    <input type="checkbox" checked={scopeDoctors} onChange={(e) => { setScopeDoctors(e.target.checked); setPreview(null); }} />
+                                    <span>Doctor tariffs (consultation, prescription, license, certificate, virtual)</span>
                                 </label>
                                 <label className={styles.PriceAdjustmentModal__checkboxLabel}>
-                                    <input
-                                        type="checkbox"
-                                        checked={scopeInstitutions}
-                                        onChange={(e) => {
-                                            setScopeInstitutions(e.target.checked);
-                                            setPreview(null);
-                                        }}
-                                    />
-                                    <span>Aranceles base de instituciones clínicas</span>
+                                    <input type="checkbox" checked={scopeInstitutions} onChange={(e) => { setScopeInstitutions(e.target.checked); setPreview(null); }} />
+                                    <span>Institution base tariffs</span>
                                 </label>
                             </div>
                         </div>
@@ -317,7 +415,12 @@ export const PriceAdjustmentModal = ({
                             </div>
                         )}
 
-                        <PriceAdjustmentPreviewTable preview={preview} />
+                        <PriceAdjustmentPreviewTable
+                            preview={preview}
+                            appliedByRow={appliedByRow}
+                            onAppliedPriceChange={handleAppliedPriceChange}
+                            getRowKey={getRowKey}
+                        />
                     </>
                 )}
             </div>

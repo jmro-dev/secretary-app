@@ -138,7 +138,14 @@ describe('FinanceController - Price Adjustments (#711)', () => {
                 step: 500,
                 scope: ['doctors'],
                 inflationSource: 'INDEC',
-                inflationPeriod: '2026-10'
+                inflationPeriod: '2026-10',
+                period: '2026-Q4',
+                basePrice: 70000,
+                suggestedPrice: 80000,
+                appliedPrice: 90000,
+                roundingStep: 500,
+                adjustmentReason: 'Alta demanda',
+                source: 'manual'
             };
             const mockResult = {
                 success: true,
@@ -158,6 +165,13 @@ describe('FinanceController - Price Adjustments (#711)', () => {
                 batchId: undefined,
                 inflationSource: 'INDEC',
                 inflationPeriod: '2026-10',
+                period: '2026-Q4',
+                basePrice: 70000,
+                suggestedPrice: 80000,
+                appliedPrice: 90000,
+                roundingStep: 500,
+                adjustmentReason: 'Alta demanda',
+                source: 'manual',
                 userId: 1
             });
             expect(res.status).toHaveBeenCalledWith(200);
@@ -166,6 +180,37 @@ describe('FinanceController - Price Adjustments (#711)', () => {
                 data: mockResult,
                 error: null
             });
+        });
+    });
+
+    describe('new read endpoints', () => {
+        it('returns closing summary by year', async () => {
+            req.query.year = '2026';
+            const data = { year: 2026, inflationYoY: 0.45, appliedCumulative: 0.4, margin: -0.05, verdict: 'cheaper' };
+            priceAdjustmentService.getClosingSummary.mockResolvedValueOnce(data);
+            await controller.getPriceClosingSummary(req, res);
+            expect(priceAdjustmentService.getClosingSummary).toHaveBeenCalledWith(2026);
+            expect(res.status).toHaveBeenCalledWith(200);
+            expect(res.json).toHaveBeenCalledWith({ success: true, data, error: null });
+        });
+
+        it('returns ledger by year', async () => {
+            req.query.year = '2026';
+            const data = [{ period: '2026-Q1' }];
+            priceAdjustmentService.getLedger.mockResolvedValueOnce(data);
+            await controller.getPriceLedger(req, res);
+            expect(priceAdjustmentService.getLedger).toHaveBeenCalledWith(2026);
+            expect(res.status).toHaveBeenCalledWith(200);
+            expect(res.json).toHaveBeenCalledWith({ success: true, data, error: null });
+        });
+
+        it('returns due price notices with default days', async () => {
+            const data = [{ bookingId: 'bkg-711', notifiedAt: null }];
+            priceAdjustmentService.listDuePriceNotices.mockResolvedValueOnce(data);
+            await controller.getDuePriceNotices(req, res);
+            expect(priceAdjustmentService.listDuePriceNotices).toHaveBeenCalledWith(7);
+            expect(res.status).toHaveBeenCalledWith(200);
+            expect(res.json).toHaveBeenCalledWith({ success: true, data, error: null });
         });
     });
 });

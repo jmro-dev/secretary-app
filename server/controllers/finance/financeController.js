@@ -211,7 +211,21 @@ class FinanceController {
 
     applyPriceIncrease = async (req, res) => {
         try {
-            const { percent, step, scope, batchId, inflationSource, inflationPeriod } = req.body;
+            const {
+                percent,
+                step,
+                scope,
+                batchId,
+                inflationSource,
+                inflationPeriod,
+                period,
+                basePrice,
+                suggestedPrice,
+                appliedPrice,
+                roundingStep,
+                adjustmentReason,
+                source
+            } = req.body;
             if (percent === undefined || percent === null || isNaN(Number(percent))) {
                 return this.sendResponse(res, false, null, "Param 'percent' is required and must be a number", 400);
             }
@@ -223,6 +237,13 @@ class FinanceController {
                 batchId,
                 inflationSource,
                 inflationPeriod,
+                period,
+                basePrice,
+                suggestedPrice,
+                appliedPrice,
+                roundingStep,
+                adjustmentReason,
+                source,
                 userId
             });
             logAction(req, 'PRICE_INCREASE_APPLIED', `Ajuste de aranceles aplicado: ${percent}% (batch: ${result.batchId}, filas: ${result.affectedRows})`);
@@ -231,6 +252,45 @@ class FinanceController {
             console.error("[ECC-Finance] applyPriceIncrease error:", err);
             const status = err.message && (err.message.includes('must be greater than') || err.message.includes('already applied')) ? 400 : 500;
             this.sendResponse(res, false, null, err.message || "Server Error", status);
+        }
+    };
+
+    getPriceClosingSummary = async (req, res) => {
+        try {
+            const { year } = req.query;
+            if (year === undefined || year === null || isNaN(Number(year))) {
+                return this.sendResponse(res, false, null, "Param 'year' is required and must be an integer", 400);
+            }
+            const data = await priceAdjustmentService.getClosingSummary(Number(year));
+            this.sendResponse(res, true, data);
+        } catch (err) {
+            console.error("[ECC-Finance] getPriceClosingSummary error:", err);
+            this.sendResponse(res, false, null, err.message || "Server Error", 500);
+        }
+    };
+
+    getPriceLedger = async (req, res) => {
+        try {
+            const { year } = req.query;
+            if (year === undefined || year === null || isNaN(Number(year))) {
+                return this.sendResponse(res, false, null, "Param 'year' is required and must be an integer", 400);
+            }
+            const data = await priceAdjustmentService.getLedger(Number(year));
+            this.sendResponse(res, true, data);
+        } catch (err) {
+            console.error("[ECC-Finance] getPriceLedger error:", err);
+            this.sendResponse(res, false, null, err.message || "Server Error", 500);
+        }
+    };
+
+    getDuePriceNotices = async (req, res) => {
+        try {
+            const days = req.query.days !== undefined ? Number(req.query.days) : 7;
+            const data = await priceAdjustmentService.listDuePriceNotices(days);
+            this.sendResponse(res, true, data);
+        } catch (err) {
+            console.error("[ECC-Finance] getDuePriceNotices error:", err);
+            this.sendResponse(res, false, null, err.message || "Server Error", 500);
         }
     };
 }

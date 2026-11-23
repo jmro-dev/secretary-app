@@ -88,6 +88,19 @@ export const useFinancesPageController = ({ itemsPerPage = 14 } = {}) => {
     const { data: priceStatusResponse, refetch: fetchPriceStatus } = useFetch(`/finances/prices/status`, {
         initialData: { success: true, data: null }
     });
+    const closingYear = new Date().getFullYear();
+    const { data: closingResponse, refetch: fetchClosing } = useFetch(`/finances/prices/closing`, {
+        params: { year: closingYear },
+        initialData: { success: true, data: null }
+    });
+    const { data: ledgerResponse, refetch: fetchLedger } = useFetch(`/finances/prices/ledger`, {
+        params: { year: closingYear },
+        initialData: { success: true, data: [] }
+    });
+    const { data: noticesResponse, refetch: fetchNotices } = useFetch(`/finances/bookings/due-price-notices`, {
+        params: { days: 7 },
+        initialData: { success: true, data: [] }
+    });
 
     // ECC: Unpack data
     const txData = txResponse?.data || {};
@@ -101,6 +114,9 @@ export const useFinancesPageController = ({ itemsPerPage = 14 } = {}) => {
     const rentalDebt = statsResponse?.data?.rentalDebt || 0;
     const pendingClosures = closuresResponse?.data || [];
     const priceAdjustmentStatus = priceStatusResponse?.data || null;
+    const priceClosingSummary = closingResponse?.data || null;
+    const priceLedger = ledgerResponse?.data || [];
+    const duePriceNotices = noticesResponse?.data || [];
 
     const loading = txLoading || doctorsLoading || isActionLoading;
     const fetched = txResponse !== undefined && !txLoading;
@@ -110,7 +126,10 @@ export const useFinancesPageController = ({ itemsPerPage = 14 } = {}) => {
         fetchStats();
         fetchClosures();
         fetchPriceStatus();
-    }, [fetchTransactions, fetchStats, fetchClosures, fetchPriceStatus]);
+        fetchClosing();
+        fetchLedger();
+        fetchNotices();
+    }, [fetchTransactions, fetchStats, fetchClosures, fetchPriceStatus, fetchClosing, fetchLedger, fetchNotices]);
 
     const baseHandlers = useFinanceHandlers({
         user, t, showMessage, confirm, alert,
@@ -172,6 +191,9 @@ export const useFinancesPageController = ({ itemsPerPage = 14 } = {}) => {
         pendingClosuresOpen,
         priceAdjustmentModalOpen: state.priceAdjustmentModalOpen,
         priceAdjustmentStatus,
+        priceClosingSummary,
+        priceLedger,
+        duePriceNotices,
         balancingModal,
         editingTx,
         pendingClosures,

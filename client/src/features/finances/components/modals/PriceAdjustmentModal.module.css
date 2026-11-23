@@ -110,9 +110,22 @@
     box-shadow: 0 0 0 2px rgb(37, 99, 235, 0.15);
 }
 
+.PriceAdjustmentModal__tableInput {
+    width: 110px;
+    padding: 4px 6px;
+    border: 1px solid var(--border-color, #cbd5e1);
+    border-radius: var(--radius-sm, 6px);
+    text-align: right;
+    font-size: 0.82rem;
+}
+
 .PriceAdjustmentModal__helperText {
     font-size: 0.75rem;
     color: var(--text-muted, #94a3b8);
+}
+
+.PriceAdjustmentModal__fieldGroupWide {
+    grid-column: span 2;
 }
 
 .PriceAdjustmentModal__scopeGroup {
@@ -185,6 +198,15 @@
     color: #16a34a;
     font-weight: 700;
     background-color: rgb(22, 163, 74, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+}
+
+.PriceAdjustmentModal__increaseTagNeutral {
+    color: var(--text-secondary, #64748b);
+    font-weight: 700;
+    background-color: rgb(100, 116, 139, 0.12);
     padding: 2px 6px;
     border-radius: 4px;
     font-size: 0.78rem;

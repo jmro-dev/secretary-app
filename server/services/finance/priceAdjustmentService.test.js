@@ -185,12 +185,21 @@ describe('PriceAdjustmentService', () => {
             const preview = await priceAdjustmentService.previewIncrease({
                 percent: 12.5,
                 step: 500,
-                scope: ['doctors', 'institutions']
+                scope: ['doctors', 'institutions'],
+                period: '2026-Q2',
+                basePrice: 70000
             });
 
             expect(preview.percent).toBe(12.5);
             expect(preview.step).toBe(500);
             expect(preview.count).toBe(5); // 4 doctor fields > 0 + 1 institution
+            expect(preview.period).toBe('2026-Q2');
+            expect(preview.basePrice).toBe(70000);
+            expect(preview.inflationFactor).toBeCloseTo(1.125, 6);
+            expect(preview.suggestedPrice).toBe(79000);
+            expect(preview.roundingStep).toBe(500);
+            expect(preview.scope).toEqual(['doctors', 'institutions']);
+            expect(preview.rows).toHaveLength(5);
 
             const houseConsultation = preview.items.find(i => i.field === 'consultation_price');
             expect(houseConsultation.oldValue).toBe(23101);
@@ -244,6 +253,9 @@ describe('PriceAdjustmentService', () => {
                 if (sql.includes('SELECT COUNT(*) AS affectedRows')) {
                     return Promise.resolve([{ affectedRows: 8 }]);
                 }
+                if (sql.includes('FROM price_changes') && sql.includes('ORDER BY id ASC')) {
+                    return Promise.resolve([]);
+                }
                 return Promise.resolve([]);
             });
 
@@ -277,6 +289,119 @@ describe('PriceAdjustmentService', () => {
             );
         });
 
+        it('records manual adjustment in ledger with same batch and computed delta', async () => {
+            const batchId = 'batch-manual-1';
+            pool.query.mockImplementation((sql) => {
+                if (sql.includes('CALL proc_apply_price_increase')) return Promise.resolve();
+                if (sql.includes('SELECT COUNT(*) AS affectedRows')) return Promise.resolve([{ affectedRows: 1 }]);
+                if (sql.includes('FROM price_changes') && sql.includes('ORDER BY id ASC')) {
+                    return Promise.resolve([{
+                        scope: 'doctors',
+                        target_id: 1,
+                        field: 'consultation_price',
+                        old_value: 70000,
+                        new_value: 80000,
+                        percent: 14.2857,
+                        rounding_step: 500,
+                        user_id: 7
+                    }]);
+                }
+                if (sql.includes('INSERT INTO price_adjustment_periods')) return Promise.resolve({ affectedRows: 1 });
+                if (sql.includes('INSERT INTO price_adjustment_ledger')) return Promise.resolve({ affectedRows: 1 });
+                if (sql.includes('FROM price_changes') && sql.includes('WHERE batch_id = ?')) return Promise.resolve([]);
+                return Promise.resolve([]);
+            });
+
+            const result = await priceAdjustmentService.applyIncrease({
+                percent: 14.2857,
+                step: 500,
+                scope: ['doctors'],
+                batchId,
+                period: '2026-Q1',
+                basePrice: 80000,
+                suggestedPrice: 80000,
+                appliedPrice: 90000,
+                roundingStep: 500,
+                adjustmentReason: 'Alta demanda de especialista',
+                source: 'manual',
+                userId: 7
+            });
+
+            const periodCall = pool.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO price_adjustment_periods'));
+            expect(periodCall).toBeDefined();
+            expect(periodCall[1]).toEqual(['2026-Q1', 2026, 1, expect.any(Number), expect.any(Number)]);
+
+            const ledgerCall = pool.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO price_adjustment_ledger'));
+            expect(ledgerCall).toBeDefined();
+            expect(ledgerCall[1][0]).toBe(batchId);
+            expect(ledgerCall[1][1]).toBe('2026-Q1');
+            expect(ledgerCall[1][9]).toBe(80000);
+            expect(ledgerCall[1][10]).toBe(90000);
+            expect(ledgerCall[1][11]).toBe(10000);
+            expect(ledgerCall[1][12]).toBeCloseTo(12.5, 3);
+            expect(ledgerCall[1][15]).toBe('manual');
+            expect(ledgerCall[1][16]).toBe('accepted_with_adjustment');
+            expect(result.delta).toBe(10000);
+            expect(result.deltaPct).toBeCloseTo(12.5, 3);
+            expect(result.status).toBe('accepted_with_adjustment');
+            expect(result.source).toBe('manual');
+            expect(result.ledgerRecorded).toBe(true);
+        });
+
+        it('keeps per-row prices in the ledger when a manual applied price is supplied', async () => {
+            const batchId = 'batch-manual-multi';
+            pool.query.mockImplementation((sql) => {
+                if (sql.includes('CALL proc_apply_price_increase')) return Promise.resolve();
+                if (sql.includes('SELECT COUNT(*) AS affectedRows')) return Promise.resolve([{ affectedRows: 2 }]);
+                if (sql.includes('FROM price_changes') && sql.includes('ORDER BY id ASC')) {
+                    return Promise.resolve([
+                        {
+                            scope: 'doctors', target_id: 1, field: 'consultation_price',
+                            old_value: 70000, new_value: 80000, percent: 14.2857,
+                            rounding_step: 500, user_id: 7
+                        },
+                        {
+                            scope: 'doctors', target_id: 2, field: 'consultation_price',
+                            old_value: 50000, new_value: 60000, percent: 14.2857,
+                            rounding_step: 500, user_id: 7
+                        }
+                    ]);
+                }
+                if (sql.includes('INSERT INTO price_adjustment_periods')) return Promise.resolve({ affectedRows: 1 });
+                if (sql.includes('INSERT INTO price_adjustment_ledger')) return Promise.resolve({ affectedRows: 1 });
+                if (sql.includes('FROM price_changes') && sql.includes('WHERE batch_id = ?')) return Promise.resolve([]);
+                return Promise.resolve([]);
+            });
+
+            await priceAdjustmentService.applyIncrease({
+                percent: 14.2857,
+                step: 500,
+                scope: ['doctors'],
+                batchId,
+                period: '2026-Q1',
+                basePrice: 80000,
+                suggestedPrice: 80000,
+                appliedPrice: 90000,
+                roundingStep: 500,
+                adjustmentReason: 'Alta demanda de especialista',
+                source: 'manual',
+                userId: 7
+            });
+
+            const ledgerCalls = pool.query.mock.calls.filter(([sql]) => sql.includes('INSERT INTO price_adjustment_ledger'));
+            expect(ledgerCalls).toHaveLength(2);
+
+            expect(ledgerCalls[0][1][5]).toBe(80000);
+            expect(ledgerCalls[0][1][9]).toBe(80000);
+            expect(ledgerCalls[0][1][10]).toBe(90000);
+            expect(ledgerCalls[0][1][16]).toBe('accepted_with_adjustment');
+
+            expect(ledgerCalls[1][1][5]).toBe(50000);
+            expect(ledgerCalls[1][1][9]).toBe(57500);
+            expect(ledgerCalls[1][1][10]).toBe(60000);
+            expect(ledgerCalls[1][1][16]).toBe('accepted_with_adjustment');
+        });
+
         it('rejects percent <= -100', async () => {
             await expect(
                 priceAdjustmentService.applyIncrease({ percent: -100 })
@@ -287,6 +412,62 @@ describe('PriceAdjustmentService', () => {
             await expect(
                 priceAdjustmentService.applyIncrease({ percent: 10, scope: [] })
             ).rejects.toThrow('At least one scope (doctors or institutions) must be selected');
+        });
+    });
+
+    describe('calculations and read mappings', () => {
+        it('uses compound factors and expected effective factor', () => {
+            const compound = (1 + 0.02) * (1 + 0.02);
+            expect(compound).toBeCloseTo(1.0404, 6);
+            expect(Number(compound.toFixed(4))).not.toBe(1.04);
+            const effective = 80000 / 70000;
+            expect(effective).toBeCloseTo(1.142857, 6);
+        });
+
+        it('maps closing summary rows to contract fields', async () => {
+            pool.query.mockResolvedValueOnce([{ year: 2026, inflation_yoy: 0.45, applied_cumulative: 0.4, margin: -0.05, verdict: 'cheaper' }]);
+            const summary = await priceAdjustmentService.getClosingSummary(2026);
+            expect(summary).toEqual({ year: 2026, inflationYoY: 0.45, appliedCumulative: 0.4, margin: -0.05, verdict: 'cheaper' });
+        });
+
+        it('maps ledger rows and filters by year', async () => {
+            pool.query.mockResolvedValueOnce([{
+                period: '2026-Q1', inflation_factor: 1.142857, applied_factor: 1.285714,
+                suggested_price: 80000, applied_price: 90000, delta: 10000, delta_pct: 12.5,
+                adjustment_reason: 'Alta demanda de especialista', source: 'manual'
+            }]);
+
+            const rows = await priceAdjustmentService.getLedger(2026);
+            expect(pool.query).toHaveBeenCalledWith(expect.stringContaining('WHERE period LIKE ?'), ['2026-%']);
+            expect(rows[0]).toEqual({
+                period: '2026-Q1', inflationFactor: 1.142857, appliedFactor: 1.285714,
+                suggestedPrice: 80000, appliedPrice: 90000, delta: 10000, deltaPct: 12.5,
+                adjustmentReason: 'Alta demanda de especialista', source: 'manual'
+            });
+        });
+
+        it('lists due price notices with 7-day window and null notifiedAt', async () => {
+            pool.query.mockResolvedValueOnce([{
+                booking_id: 'bkg-711',
+                appointment_at: '2026-12-15T10:30:00.000Z',
+                quoted_price: 70000,
+                current_price: 80000,
+                delta: 10000,
+                days_before: 7,
+                notified_at: null
+            }]);
+
+            const rows = await priceAdjustmentService.listDuePriceNotices(7);
+            expect(pool.query).toHaveBeenCalledWith(expect.stringContaining('INTERVAL ? DAY'), [7, 7]);
+            expect(rows).toEqual([{
+                bookingId: 'bkg-711',
+                appointmentAt: '2026-12-15T10:30:00.000Z',
+                quotedPrice: 70000,
+                currentPrice: 80000,
+                delta: 10000,
+                daysBefore: 7,
+                notifiedAt: null
+            }]);
         });
     });
 });

@@ -7,6 +7,7 @@ const ARGENTINADATOS_URL = 'https://api.argentinadatos.com/v1/finanzas/indices/i
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 const TIMEOUT_MS = 5000; // 5 seconds timeout
+const PRICE_PERIOD_REGEX = /^[0-9]{4}-Q[1-4]$/;
 
 // In-memory cache for inflation queries: key -> { timestamp, data }
 const inflationCache = new Map();
@@ -49,6 +50,66 @@ function normalizeScope(scope) {
 function roundPrice(value, step) {
     if (!step || step <= 0) return Number(value);
     return Math.ceil(value / step) * step;
+}
+
+function normalizePercent(percent) {
+    const numPercent = Number(percent);
+    if (Number.isNaN(numPercent) || numPercent <= -100) {
+        throw new Error('percent must be greater than -100');
+    }
+    return numPercent;
+}
+
+function normalizeRoundingStep(step) {
+    const numericStep = Number(step);
+    return numericStep > 0 ? numericStep : 500;
+}
+
+function normalizeSource(source) {
+    return source === 'manual' ? 'manual' : 'auto';
+}
+
+function computeFactorFromPercent(percent) {
+    return 1 + (Number(percent) / 100);
+}
+
+function computeEffectiveFactor(suggestedPrice, basePrice) {
+    const base = Number(basePrice);
+    if (!base) return 0;
+    return Number(suggestedPrice) / base;
+}
+
+function computeDeltaPct(delta, suggestedPrice) {
+    const suggested = Number(suggestedPrice);
+    if (!suggested) return 0;
+    return (100 * Number(delta)) / suggested;
+}
+
+function resolveAdjustmentStatus(delta) {
+    return Number(delta) === 0 ? 'accepted' : 'accepted_with_adjustment';
+}
+
+function computeMargin(appliedCumulative, inflationYoY) {
+    return Number(appliedCumulative) - Number(inflationYoY);
+}
+
+function resolveVerdict(margin) {
+    const numericMargin = Number(margin);
+    if (numericMargin < 0) return 'cheaper';
+    if (numericMargin > 0) return 'expensive';
+    return 'aligned';
+}
+
+function defaultPeriodFromDate(date = new Date()) {
+    const year = date.getUTCFullYear();
+    const quarter = Math.floor(date.getUTCMonth() / 3) + 1;
+    return `${year}-Q${quarter}`;
+}
+
+function parsePricePeriod(period) {
+    const match = typeof period === 'string' ? period.match(/^([0-9]{4})-Q([1-4])$/) : null;
+    if (!match) return parsePricePeriod(defaultPeriodFromDate());
+    return { year: Number(match[1]), quarter: Number(match[2]) };
 }
 
 class PriceAdjustmentService {
@@ -212,18 +273,17 @@ class PriceAdjustmentService {
 
     /**
      * S6: Read-only preview of proposed price increases.
-     * Computes oldValue -> newValue with commercial rounding to step.
+     * Returns contract-shaped suggestion metadata and keeps legacy fields for current callers.
      */
-    async previewIncrease({ percent, step = 500, scope = ['doctors', 'institutions'] }) {
-        const numPercent = Number(percent);
-        if (isNaN(numPercent) || numPercent <= -100) {
-            throw new Error('percent must be greater than -100');
-        }
-
-        const roundingStep = Number(step) > 0 ? Number(step) : 500;
+    async previewIncrease({ percent, step = 500, scope = ['doctors', 'institutions'], period, basePrice } = {}) {
+        const numPercent = normalizePercent(percent);
+        const roundingStep = normalizeRoundingStep(step);
         const scopeFlags = normalizeScope(scope);
-        const factor = 1 + (numPercent / 100);
+        const inflationFactor = computeFactorFromPercent(numPercent);
         const items = [];
+        const selectedPeriod = typeof period === 'string' && PRICE_PERIOD_REGEX.test(period)
+            ? period
+            : defaultPeriodFromDate();
 
         // Preview doctors
         if (scopeFlags.doctors) {
@@ -245,7 +305,7 @@ class PriceAdjustmentService {
                 for (const { field, label } of doctorFields) {
                     const oldValue = Number(doc[field] || 0);
                     if (oldValue > 0) {
-                        const newValue = roundPrice(oldValue * factor, roundingStep);
+                        const newValue = roundPrice(oldValue * inflationFactor, roundingStep);
                         items.push({
                             scope: 'doctors',
                             targetId: doc.id,
@@ -254,7 +314,12 @@ class PriceAdjustmentService {
                             fieldLabel: label,
                             oldValue,
                             newValue,
-                            difference: newValue - oldValue
+                            difference: newValue - oldValue,
+                            basePrice: oldValue,
+                            inflationFactor,
+                            effectiveFactor: computeEffectiveFactor(newValue, oldValue),
+                            suggestedPrice: newValue,
+                            roundingStep
                         });
                     }
                 }
@@ -271,7 +336,7 @@ class PriceAdjustmentService {
             for (const inst of institutions) {
                 const oldValue = Number(inst.base_price || 0);
                 if (oldValue > 0) {
-                    const newValue = roundPrice(oldValue * factor, roundingStep);
+                    const newValue = roundPrice(oldValue * inflationFactor, roundingStep);
                     items.push({
                         scope: 'institutions',
                         targetId: inst.id,
@@ -280,13 +345,32 @@ class PriceAdjustmentService {
                         fieldLabel: 'Arancel Base',
                         oldValue,
                         newValue,
-                        difference: newValue - oldValue
+                        difference: newValue - oldValue,
+                        basePrice: oldValue,
+                        inflationFactor,
+                        effectiveFactor: computeEffectiveFactor(newValue, oldValue),
+                        suggestedPrice: newValue,
+                        roundingStep
                     });
                 }
             }
         }
 
+        const selectedBasePrice = basePrice !== undefined && basePrice !== null && !Number.isNaN(Number(basePrice))
+            ? Number(basePrice)
+            : Number(items[0]?.basePrice || 0);
+        const suggestedPrice = roundPrice(selectedBasePrice * inflationFactor, roundingStep);
+
         return {
+            period: selectedPeriod,
+            basePrice: selectedBasePrice,
+            inflationFactor,
+            effectiveFactor: computeEffectiveFactor(suggestedPrice, selectedBasePrice),
+            suggestedPrice,
+            roundingStep,
+            scope: Object.keys(scopeFlags).filter((key) => scopeFlags[key]),
+            rows: items,
+            // Legacy fields kept for existing consumers.
             percent: numPercent,
             step: roundingStep,
             count: items.length,
@@ -295,19 +379,31 @@ class PriceAdjustmentService {
     }
 
     /**
-     * S7: Applies price increase transactionally via stored procedure proc_apply_price_increase.
-     * Returns batchId and affected rows recorded in price_changes.
+     * S7: Applies price increase via stored procedure proc_apply_price_increase.
+     * The procedure owns transaction/commit semantics (8-param signature kept for compatibility).
+     * After a successful CALL, ledger/notice writes are best-effort: price_changes remains the
+     * atomic audit source, so we log warnings and keep the successful apply response.
      */
-    async applyIncrease({ percent, step = 500, scope = ['doctors', 'institutions'], batchId, inflationSource, inflationPeriod, userId }) {
-        const numPercent = Number(percent);
-        if (isNaN(numPercent) || numPercent <= -100) {
-            throw new Error('percent must be greater than -100');
-        }
-
-        const roundingStep = Number(step) > 0 ? Number(step) : 500;
+    async applyIncrease({
+        percent,
+        step = 500,
+        scope = ['doctors', 'institutions'],
+        batchId,
+        inflationSource,
+        inflationPeriod,
+        userId,
+        period,
+        basePrice,
+        suggestedPrice,
+        appliedPrice,
+        roundingStep,
+        adjustmentReason,
+        source
+    } = {}) {
+        const numPercent = normalizePercent(percent);
+        const resolvedRoundingStep = normalizeRoundingStep(roundingStep !== undefined ? roundingStep : step);
         const finalBatchId = batchId || crypto.randomUUID();
         const scopeFlags = normalizeScope(scope);
-
         const scopeDoctors = scopeFlags.doctors ? 1 : 0;
         const scopeInstitutions = scopeFlags.institutions ? 1 : 0;
 
@@ -315,37 +411,319 @@ class PriceAdjustmentService {
             throw new Error('At least one scope (doctors or institutions) must be selected');
         }
 
-        // Call stored procedure
+        const resolvedPeriod = typeof period === 'string' && PRICE_PERIOD_REGEX.test(period)
+            ? period
+            : (typeof inflationPeriod === 'string' && PRICE_PERIOD_REGEX.test(inflationPeriod) ? inflationPeriod : defaultPeriodFromDate());
+        const resolvedSource = normalizeSource(source || inflationSource);
+        const resolvedReason = adjustmentReason || 'manual adjustment';
+        const resolvedBasePrice = basePrice !== undefined && basePrice !== null && !Number.isNaN(Number(basePrice))
+            ? Number(basePrice)
+            : undefined;
+        const resolvedSuggestedPrice = suggestedPrice !== undefined && suggestedPrice !== null && !Number.isNaN(Number(suggestedPrice))
+            ? Number(suggestedPrice)
+            : undefined;
+        const resolvedAppliedPrice = appliedPrice !== undefined && appliedPrice !== null && !Number.isNaN(Number(appliedPrice))
+            ? Number(appliedPrice)
+            : undefined;
+        const inflationFactor = computeFactorFromPercent(numPercent);
+
         await pool.query(
             'CALL proc_apply_price_increase(?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 finalBatchId,
                 numPercent,
-                roundingStep,
+                resolvedRoundingStep,
                 scopeDoctors,
                 scopeInstitutions,
-                inflationSource || 'manual',
-                inflationPeriod || null,
+                inflationSource || source || 'manual',
+                inflationPeriod || period || null,
                 userId || null
             ]
         );
 
-        // Fetch affected count
         const countRows = await pool.query(
             'SELECT COUNT(*) AS affectedRows FROM price_changes WHERE batch_id = ?',
             [finalBatchId]
         );
-
         const affectedRows = Number(countRows[0]?.affectedRows || 0);
+
+        let ledgerRecorded = false;
+        try {
+            await this.recordLedgerEntries({
+                batchId: finalBatchId,
+                period: resolvedPeriod,
+                basePrice: resolvedBasePrice,
+                inflationFactor,
+                suggestedPrice: resolvedSuggestedPrice,
+                appliedPrice: resolvedAppliedPrice,
+                roundingStep: resolvedRoundingStep,
+                adjustmentReason: resolvedReason,
+                source: resolvedSource,
+                userId
+            });
+            ledgerRecorded = true;
+        } catch (ledgerErr) {
+            console.error('[PriceAdjustmentService] Ledger write failed after successful price change:', ledgerErr.message);
+        }
+
+        try {
+            await this.refreshDuePriceNotices({ batchId: finalBatchId });
+        } catch (noticeErr) {
+            console.warn('[PriceAdjustmentService] Price variation notice refresh failed:', noticeErr.message);
+        }
+
+        const summarySuggested = resolvedSuggestedPrice !== undefined
+            ? resolvedSuggestedPrice
+            : (resolvedBasePrice !== undefined ? roundPrice(resolvedBasePrice * inflationFactor, resolvedRoundingStep) : 0);
+        const summaryApplied = resolvedAppliedPrice !== undefined ? resolvedAppliedPrice : summarySuggested;
+        const delta = Number(summaryApplied) - Number(summarySuggested);
+        const deltaPct = computeDeltaPct(delta, summarySuggested);
 
         return {
             success: true,
             batchId: finalBatchId,
             percent: numPercent,
-            step: roundingStep,
+            step: resolvedRoundingStep,
             affectedRows,
-            appliedAt: new Date().toISOString()
+            appliedAt: new Date().toISOString(),
+            ledgerRecorded,
+            period: resolvedPeriod,
+            status: resolveAdjustmentStatus(delta),
+            suggestedPrice: summarySuggested,
+            appliedPrice: summaryApplied,
+            delta,
+            deltaPct,
+            adjustmentReason: resolvedReason,
+            source: resolvedSource
         };
+    }
+
+    async recordLedgerEntries({
+        batchId,
+        period,
+        basePrice,
+        inflationFactor,
+        suggestedPrice,
+        appliedPrice,
+        roundingStep,
+        adjustmentReason,
+        source,
+        userId
+    }) {
+        const { year, quarter } = parsePricePeriod(period);
+        await pool.query(
+            `INSERT INTO price_adjustment_periods (period, year, quarter, inflation_factor, effective_factor)
+             VALUES (?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE inflation_factor = VALUES(inflation_factor), effective_factor = VALUES(effective_factor)`,
+            [period, year, quarter, Number(inflationFactor), Number(inflationFactor)]
+        );
+
+        const rows = await pool.query(
+            `SELECT scope, target_id, field, old_value, new_value, percent, rounding_step, user_id
+               FROM price_changes
+              WHERE batch_id = ?
+              ORDER BY id ASC`,
+            [batchId]
+        );
+
+        for (const [index, row] of rows.entries()) {
+            const isOverrideTarget = index === 0;
+            const rowBasePrice = isOverrideTarget && basePrice !== undefined ? Number(basePrice) : Number(row.old_value);
+            const rowInflationFactor = row.percent !== null && row.percent !== undefined
+                ? computeFactorFromPercent(row.percent)
+                : Number(inflationFactor);
+            const rowRoundingStep = Number(row.rounding_step || roundingStep);
+            const rowSuggestedPrice = isOverrideTarget && suggestedPrice !== undefined
+                ? Number(suggestedPrice)
+                : roundPrice(rowBasePrice * rowInflationFactor, rowRoundingStep);
+            const rowAppliedPrice = isOverrideTarget && appliedPrice !== undefined ? Number(appliedPrice) : Number(row.new_value);
+            const delta = rowAppliedPrice - rowSuggestedPrice;
+            const deltaPct = computeDeltaPct(delta, rowSuggestedPrice);
+
+            await pool.query(
+                `INSERT INTO price_adjustment_ledger (
+                    batch_id, period, scope, target_id, field, base_price,
+                    inflation_factor, effective_factor, applied_factor,
+                    suggested_price, applied_price, delta, delta_pct,
+                    rounding_step, adjustment_reason, source, status, user_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    batchId,
+                    period,
+                    row.scope,
+                    Number(row.target_id),
+                    row.field,
+                    rowBasePrice,
+                    rowInflationFactor,
+                    computeEffectiveFactor(rowSuggestedPrice, rowBasePrice),
+                    computeEffectiveFactor(rowAppliedPrice, rowBasePrice),
+                    rowSuggestedPrice,
+                    rowAppliedPrice,
+                    delta,
+                    deltaPct,
+                    rowRoundingStep,
+                    adjustmentReason,
+                    normalizeSource(source),
+                    resolveAdjustmentStatus(delta),
+                    userId || row.user_id || null
+                ]
+            );
+        }
+    }
+
+    async refreshDuePriceNotices({ batchId, days = 7 }) {
+        const windowDays = Number(days) > 0 ? Number(days) : 7;
+        const changedRows = await pool.query(
+            `SELECT scope, target_id, field, old_value, new_value
+               FROM price_changes
+              WHERE batch_id = ?`,
+            [batchId]
+        );
+
+        const doctorIds = [...new Set(changedRows
+            .filter((row) => row.scope === 'doctors' && row.field === 'consultation_price')
+            .map((row) => Number(row.target_id)))];
+
+        if (doctorIds.length === 0) return { refreshed: 0 };
+
+        const placeholders = doctorIds.map(() => '?').join(', ');
+        const appointments = await pool.query(
+            `SELECT id, doctor_id, appointment_date, cost
+               FROM appointments
+              WHERE doctor_id IN (${placeholders})
+                AND appointment_date >= NOW()
+                AND appointment_date < DATE_ADD(NOW(), INTERVAL ? DAY)
+                AND status NOT IN ('cancelled', 'no_show', 'absent')`,
+            [...doctorIds, windowDays]
+        );
+
+        const changeMap = new Map();
+        for (const row of changedRows) {
+            if (row.scope === 'doctors' && row.field === 'consultation_price') {
+                changeMap.set(Number(row.target_id), {
+                    oldValue: Number(row.old_value),
+                    newValue: Number(row.new_value)
+                });
+            }
+        }
+
+        let refreshed = 0;
+        for (const appt of appointments) {
+            const change = changeMap.get(Number(appt.doctor_id));
+            if (!change) continue;
+            const quotedPrice = Number(change.oldValue);
+            const currentPrice = Number(change.newValue);
+            if (!quotedPrice || !currentPrice || quotedPrice === currentPrice) continue;
+            const delta = currentPrice - quotedPrice;
+            const daysBefore = Math.max(0, Math.ceil((new Date(appt.appointment_date).getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
+
+            await pool.query(
+                `INSERT INTO price_variation_notices (
+                    appointment_id, booking_reference, quoted_price, current_price, delta, days_before, notified_at
+                ) VALUES (?, ?, ?, ?, ?, ?, NULL)
+                ON DUPLICATE KEY UPDATE
+                    current_price = VALUES(current_price),
+                    delta = VALUES(delta),
+                    days_before = VALUES(days_before),
+                    booking_reference = COALESCE(VALUES(booking_reference), booking_reference)`,
+                [Number(appt.id), `appt-${appt.id}`, quotedPrice, currentPrice, delta, daysBefore]
+            );
+            refreshed += 1;
+        }
+
+        return { refreshed };
+    }
+
+
+    async getClosingSummary(year) {
+        const closingYear = Number(year);
+        if (!Number.isInteger(closingYear)) {
+            throw new Error('year must be an integer');
+        }
+
+        const rows = await pool.query(
+            `SELECT year, inflation_yoy, applied_cumulative, margin, verdict
+               FROM price_closing_summaries
+              WHERE year = ?
+              LIMIT 1`,
+            [closingYear]
+        );
+
+        const row = rows[0];
+        if (!row) return null;
+
+        const inflationYoY = Number(row.inflation_yoy);
+        const appliedCumulative = Number(row.applied_cumulative);
+        const margin = row.margin !== null && row.margin !== undefined
+            ? Number(row.margin)
+            : computeMargin(appliedCumulative, inflationYoY);
+
+        return {
+            year: Number(row.year),
+            inflationYoY,
+            appliedCumulative,
+            margin,
+            verdict: row.verdict || resolveVerdict(margin)
+        };
+    }
+
+    async getLedger(year) {
+        const closingYear = Number(year);
+        if (!Number.isInteger(closingYear)) {
+            throw new Error('year must be an integer');
+        }
+
+        const rows = await pool.query(
+            `SELECT period, inflation_factor, applied_factor, suggested_price, applied_price,
+                    delta, delta_pct, adjustment_reason, source
+               FROM price_adjustment_ledger
+              WHERE period LIKE ?
+              ORDER BY period ASC, id ASC`,
+            [`${closingYear}-%`]
+        );
+
+        return rows.map((row) => ({
+            period: row.period,
+            inflationFactor: Number(row.inflation_factor),
+            appliedFactor: Number(row.applied_factor),
+            suggestedPrice: Number(row.suggested_price),
+            appliedPrice: Number(row.applied_price),
+            delta: Number(row.delta),
+            deltaPct: Number(row.delta_pct),
+            adjustmentReason: row.adjustment_reason,
+            source: row.source
+        }));
+    }
+
+    async listDuePriceNotices(days = 7) {
+        const windowDays = Number(days) > 0 ? Number(days) : 7;
+        const rows = await pool.query(
+            `SELECT
+                COALESCE(n.booking_reference, CONCAT('appt-', n.appointment_id)) AS booking_id,
+                a.appointment_date AS appointment_at,
+                n.quoted_price,
+                n.current_price,
+                n.delta,
+                n.days_before,
+                n.notified_at
+             FROM price_variation_notices n
+             JOIN appointments a ON a.id = n.appointment_id
+            WHERE a.appointment_date >= NOW()
+              AND a.appointment_date < DATE_ADD(NOW(), INTERVAL ? DAY)
+              AND n.days_before <= ?
+            ORDER BY a.appointment_date ASC, n.id ASC`,
+            [windowDays, windowDays]
+        );
+
+        return rows.map((row) => ({
+            bookingId: row.booking_id,
+            appointmentAt: row.appointment_at instanceof Date ? row.appointment_at.toISOString() : row.appointment_at,
+            quotedPrice: Number(row.quoted_price),
+            currentPrice: Number(row.current_price),
+            delta: Number(row.delta),
+            daysBefore: Number(row.days_before),
+            notifiedAt: row.notified_at ? (row.notified_at instanceof Date ? row.notified_at.toISOString() : row.notified_at) : null
+        }));
     }
 }
 

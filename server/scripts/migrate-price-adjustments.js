@@ -15,8 +15,8 @@
  *
  * Idempotente: tabla con IF NOT EXISTS y rutinas recreadas con DROP previo.
  *
- * Nota: el cuerpo de las rutinas está duplicado en server/01-schema.sql porque
- * el dump se carga standalone en instalaciones nuevas. El test
+ * Nota: el cuerpo de las rutinas tiene un único espejo en server/01-schema.sql
+ * porque el dump se carga standalone en instalaciones nuevas. El test
  * `server/scripts/__tests__/price-adjustments.schema.test.js` verifica que
  * ambas copias no diverjan.
  */
@@ -34,6 +34,9 @@ CREATE TABLE IF NOT EXISTS price_changes (
   percent decimal(10,4) DEFAULT NULL,
   rounding_step int(11) DEFAULT NULL,
   inflation_source varchar(50) DEFAULT NULL,
+  source enum('auto','manual') DEFAULT NULL,
+  adjustment_reason varchar(255) DEFAULT NULL,
+  status enum('accepted','accepted_with_adjustment') DEFAULT NULL,
   inflation_period varchar(7) DEFAULT NULL,
   user_id int(11) DEFAULT NULL,
   PRIMARY KEY (id),

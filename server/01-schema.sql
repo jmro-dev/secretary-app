@@ -2819,193 +2819,85 @@ CREATE TABLE `price_changes` (
   `changed_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `scope` enum('doctors','institutions') NOT NULL,
   `target_id` int(11) NOT NULL,
-  `field` varchar(50) NOT NULL,
-  `old_value` decimal(10,2) NOT NULL,
-  `new_value` decimal(10,2) NOT NULL,
-  `percent` decimal(6,3) DEFAULT NULL,
-  `rounding_step` int(11) DEFAULT NULL,
-  `inflation_source` varchar(50) DEFAULT NULL,
-  `inflation_period` varchar(7) DEFAULT NULL,
-  `user_id` int(11) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_batch` (`batch_id`),
-  KEY `idx_target` (`scope`,`target_id`,`field`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Redondeo comercial de aranceles: CEIL(valor / paso) * paso
---
-
-DROP FUNCTION IF EXISTS `fn_round_price`;
-DELIMITER ;;
-CREATE DEFINER=`root`@`localhost` FUNCTION `fn_round_price`(p_value DECIMAL(10,2), p_step INT) RETURNS decimal(10,2)
-    DETERMINISTIC
-BEGIN
-    IF p_step IS NULL OR p_step <= 0 THEN
-        RETURN p_value;
-    END IF;
-    RETURN CEIL(p_value / p_step) * p_step;
-END
-;;
-DELIMITER ;
-
---
--- Aplica un aumento porcentual sobre aranceles e instituciones y lo audita.
--- La batalla atómica se identifica por p_batch_id. El llamador NO debe abrir
--- su propia transacción: el procedimiento controla COMMIT / ROLLBACK.
---
-
-DROP PROCEDURE IF EXISTS `proc_apply_price_increase`;
-DELIMITER ;;
-CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_apply_price_increase`(
-    IN p_batch_id CHAR(36),
-    IN p_percent DECIMAL(10,4),
-    IN p_step INT,
-    IN p_scope_doctors TINYINT(1),
-    IN p_scope_institutions TINYINT(1),
-    IN p_inflation_source VARCHAR(50),
-    IN p_inflation_period VARCHAR(7),
-    IN p_user_id INT
-)
-    MODIFIES SQL DATA
-BEGIN
-    DECLARE v_factor DECIMAL(12,6);
-
-    DECLARE EXIT HANDLER FOR SQLEXCEPTION
-    BEGIN
-        ROLLBACK;
-        RESIGNAL;
-    END;
-
-    IF p_percent IS NULL OR p_percent <= -100 THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'percent must be greater than -100';
-    END IF;
-
-    IF p_batch_id IS NULL OR CHAR_LENGTH(p_batch_id) = 0 THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'batch_id is required';
-    END IF;
-
-    SET v_factor = 1 + (p_percent / 100);
-
-    START TRANSACTION;
-
-    IF p_scope_doctors = 1 THEN
-        INSERT INTO price_changes (
-            batch_id, scope, target_id, field, old_value, new_value,
-            percent, rounding_step, inflation_source, inflation_period, user_id
-        )
-        SELECT p_batch_id, 'doctors', d.id, 'consultation_price', d.consultation_price,
-               fn_round_price(d.consultation_price * v_factor, p_step),
-               p_percent, p_step, p_inflation_source, p_inflation_period, p_user_id
-          FROM doctors d WHERE d.consultation_price > 0
-        UNION ALL
-        SELECT p_batch_id, 'doctors', d.id, 'prescription_price', d.prescription_price,
-               fn_round_price(d.prescription_price * v_factor, p_step),
-               p_percent, p_step, p_inflation_source, p_inflation_period, p_user_id
-          FROM doctors d WHERE d.prescription_price > 0
-        UNION ALL
-        SELECT p_batch_id, 'doctors', d.id, 'medical_license_price', d.medical_license_price,
-               fn_round_price(d.medical_license_price * v_factor, p_step),
-               p_percent, p_step, p_inflation_source, p_inflation_period, p_user_id
-          FROM doctors d WHERE d.medical_license_price > 0
-        UNION ALL
-        SELECT p_batch_id, 'doctors', d.id, 'certificate_price', d.certificate_price,
-               fn_round_price(d.certificate_price * v_factor, p_step),
-               p_percent, p_step, p_inflation_source, p_inflation_period, p_user_id
-          FROM doctors d WHERE d.certificate_price > 0
-        UNION ALL
-        SELECT p_batch_id, 'doctors', d.id, 'virtual_consultation_price', d.virtual_consultation_price,
-               fn_round_price(d.virtual_consultation_price * v_factor, p_step),
-               p_percent, p_step, p_inflation_source, p_inflation_period, p_user_id
-          FROM doctors d WHERE d.virtual_consultation_price > 0;
-
-        UPDATE doctors d
-          JOIN price_changes pc
-            ON pc.batch_id = p_batch_id
-           AND pc.scope = 'doctors'
-           AND pc.target_id = d.id
-           AND pc.field = 'consultation_price'
-           SET d.consultation_price = pc.new_value;
-
-        UPDATE doctors d
-          JOIN price_changes pc
-            ON pc.batch_id = p_batch_id
-           AND pc.scope = 'doctors'
-           AND pc.target_id = d.id
-           AND pc.field = 'prescription_price'
-           SET d.prescription_price = pc.new_value;
-
-        UPDATE doctors d
-          JOIN price_changes pc
-            ON pc.batch_id = p_batch_id
-           AND pc.scope = 'doctors'
-           AND pc.target_id = d.id
-           AND pc.field = 'medical_license_price'
-           SET d.medical_license_price = pc.new_value;
-
-        UPDATE doctors d
-          JOIN price_changes pc
-            ON pc.batch_id = p_batch_id
-           AND pc.scope = 'doctors'
-           AND pc.target_id = d.id
-           AND pc.field = 'certificate_price'
-           SET d.certificate_price = pc.new_value;
-
-        UPDATE doctors d
-          JOIN price_changes pc
-            ON pc.batch_id = p_batch_id
-           AND pc.scope = 'doctors'
-           AND pc.target_id = d.id
-           AND pc.field = 'virtual_consultation_price'
-           SET d.virtual_consultation_price = pc.new_value;
-    END IF;
-
-    IF p_scope_institutions = 1 THEN
-        INSERT INTO price_changes (
-            batch_id, scope, target_id, field, old_value, new_value,
-            percent, rounding_step, inflation_source, inflation_period, user_id
-        )
-        SELECT p_batch_id, 'institutions', i.id, 'base_price', i.base_price,
-               fn_round_price(i.base_price * v_factor, p_step),
-               p_percent, p_step, p_inflation_source, p_inflation_period, p_user_id
-          FROM institutions i WHERE i.base_price > 0;
-
-        UPDATE institutions i
-          JOIN price_changes pc
-            ON pc.batch_id = p_batch_id
-           AND pc.scope = 'institutions'
-           AND pc.target_id = i.id
-           AND pc.field = 'base_price'
-           SET i.base_price = pc.new_value;
-    END IF;
-
-    COMMIT;
-END
-;;
-DELIMITER ;
---
--- Ajuste de aranceles por inflación (#711)
---
-
-DROP TABLE IF EXISTS `price_changes`;
-CREATE TABLE `price_changes` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `batch_id` char(36) NOT NULL,
-  `changed_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `scope` enum('doctors','institutions') NOT NULL,
-  `target_id` int(11) NOT NULL,
   `field` enum('consultation_price','prescription_price','medical_license_price','certificate_price','virtual_consultation_price','base_price') NOT NULL,
   `old_value` decimal(10,2) NOT NULL,
   `new_value` decimal(10,2) NOT NULL,
   `percent` decimal(10,4) DEFAULT NULL,
   `rounding_step` int(11) DEFAULT NULL,
   `inflation_source` varchar(50) DEFAULT NULL,
+  `source` enum('auto','manual') DEFAULT NULL,
+  `adjustment_reason` varchar(255) DEFAULT NULL,
+  `status` enum('accepted','accepted_with_adjustment') DEFAULT NULL,
   `inflation_period` varchar(7) DEFAULT NULL,
   `user_id` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_batch_target_field` (`batch_id`,`scope`,`target_id`,`field`),
   KEY `idx_batch` (`batch_id`),
   KEY `idx_target` (`scope`,`target_id`,`field`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `price_adjustment_periods` (
+  `period` char(7) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `year` smallint NOT NULL,
+  `quarter` tinyint NOT NULL,
+  `inflation_factor` decimal(10,4) NOT NULL,
+  `effective_factor` decimal(10,4) NOT NULL,
+  PRIMARY KEY (`period`),
+  KEY `idx_year` (`year`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `price_adjustment_ledger` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `batch_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `period` char(7) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `scope` enum('doctors','institutions') NOT NULL,
+  `target_id` int NOT NULL,
+  `field` enum('consultation_price','prescription_price','medical_license_price','certificate_price','virtual_consultation_price','base_price') NOT NULL,
+  `base_price` decimal(12,2) NOT NULL,
+  `inflation_factor` decimal(10,4) NOT NULL,
+  `effective_factor` decimal(10,4) NOT NULL,
+  `applied_factor` decimal(10,4) NOT NULL,
+  `suggested_price` decimal(12,2) NOT NULL,
+  `applied_price` decimal(12,2) NOT NULL,
+  `delta` decimal(12,2) NOT NULL,
+  `delta_pct` decimal(6,3) NOT NULL,
+  `rounding_step` int NOT NULL,
+  `adjustment_reason` varchar(255) NOT NULL,
+  `source` enum('auto','manual') NOT NULL,
+  `status` enum('accepted','accepted_with_adjustment') NOT NULL,
+  `user_id` int NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_ledger_batch_target_field` (`batch_id`,`scope`,`target_id`,`field`),
+  KEY `idx_ledger_period` (`period`),
+  KEY `idx_ledger_period_target` (`period`,`scope`,`target_id`,`field`),
+  KEY `idx_ledger_target` (`scope`,`target_id`,`field`),
+  KEY `idx_ledger_batch` (`batch_id`),
+  CONSTRAINT `fk_ledger_period` FOREIGN KEY (`period`) REFERENCES `price_adjustment_periods` (`period`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `price_closing_summaries` (
+  `year` smallint NOT NULL,
+  `inflation_yoy` decimal(10,4) NOT NULL,
+  `applied_cumulative` decimal(10,4) NOT NULL,
+  `margin` decimal(10,4) NOT NULL,
+  `verdict` enum('cheaper','expensive','aligned') NOT NULL,
+  PRIMARY KEY (`year`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `price_variation_notices` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `appointment_id` int NOT NULL,
+  `booking_reference` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `quoted_price` decimal(12,2) NOT NULL,
+  `current_price` decimal(12,2) NOT NULL,
+  `delta` decimal(12,2) NOT NULL,
+  `days_before` tinyint NOT NULL,
+  `notified_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_notice_appointment_quoted` (`appointment_id`,`quoted_price`),
+  KEY `idx_notice_window` (`days_before`,`notified_at`),
+  CONSTRAINT `fk_notice_appointment` FOREIGN KEY (`appointment_id`) REFERENCES `appointments` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
