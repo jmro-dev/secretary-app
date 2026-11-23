@@ -2,6 +2,7 @@ const { logAction } = require('../../utils/system/audit');
 const { formatLocalSQL } = require('../../utils/core/dateUtils');
 const statsService = require('../../services/finance/statsService');
 const financeService = require('../../services/finance/financeService');
+const priceAdjustmentService = require('../../services/finance/priceAdjustmentService');
 const { pool } = require('../../db');
 
 /**
@@ -165,6 +166,71 @@ class FinanceController {
         } catch (err) {
             console.error("[ECC-Finance] payInstitutionDebt error:", err);
             this.sendResponse(res, false, null, "Server Error", 500);
+        }
+    };
+
+    getInflationAdjustment = async (req, res) => {
+        try {
+            const { since } = req.query;
+            const data = await priceAdjustmentService.getInflation(since);
+            this.sendResponse(res, true, data);
+        } catch (err) {
+            console.error("[ECC-Finance] getInflationAdjustment error:", err);
+            this.sendResponse(res, false, null, "Server Error", 500);
+        }
+    };
+
+    getPriceAdjustmentStatus = async (req, res) => {
+        try {
+            const status = await priceAdjustmentService.getStatus();
+            this.sendResponse(res, true, status);
+        } catch (err) {
+            console.error("[ECC-Finance] getPriceAdjustmentStatus error:", err);
+            this.sendResponse(res, false, null, "Server Error", 500);
+        }
+    };
+
+    previewPriceIncrease = async (req, res) => {
+        try {
+            const { percent, step, scope } = req.query;
+            if (percent === undefined || percent === null || isNaN(Number(percent))) {
+                return this.sendResponse(res, false, null, "Param 'percent' is required and must be a number", 400);
+            }
+            const preview = await priceAdjustmentService.previewIncrease({
+                percent: Number(percent),
+                step: step ? Number(step) : 500,
+                scope: scope ? (scope.includes(',') ? scope.split(',') : [scope]) : ['doctors', 'institutions']
+            });
+            this.sendResponse(res, true, preview);
+        } catch (err) {
+            console.error("[ECC-Finance] previewPriceIncrease error:", err);
+            const status = err.message && err.message.includes('must be greater than') ? 400 : 500;
+            this.sendResponse(res, false, null, err.message || "Server Error", status);
+        }
+    };
+
+    applyPriceIncrease = async (req, res) => {
+        try {
+            const { percent, step, scope, batchId, inflationSource, inflationPeriod } = req.body;
+            if (percent === undefined || percent === null || isNaN(Number(percent))) {
+                return this.sendResponse(res, false, null, "Param 'percent' is required and must be a number", 400);
+            }
+            const userId = req.user?.user_id || req.user?.id;
+            const result = await priceAdjustmentService.applyIncrease({
+                percent: Number(percent),
+                step: step ? Number(step) : 500,
+                scope: scope || ['doctors', 'institutions'],
+                batchId,
+                inflationSource,
+                inflationPeriod,
+                userId
+            });
+            logAction(req, 'PRICE_INCREASE_APPLIED', `Ajuste de aranceles aplicado: ${percent}% (batch: ${result.batchId}, filas: ${result.affectedRows})`);
+            this.sendResponse(res, true, result, null, 200);
+        } catch (err) {
+            console.error("[ECC-Finance] applyPriceIncrease error:", err);
+            const status = err.message && (err.message.includes('must be greater than') || err.message.includes('already applied')) ? 400 : 500;
+            this.sendResponse(res, false, null, err.message || "Server Error", status);
         }
     };
 }

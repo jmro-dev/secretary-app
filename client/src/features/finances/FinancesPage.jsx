@@ -76,6 +76,23 @@ export const FinancesPage = ({ MedicationInputComponent }) => {
                                     {t('new_transaction')}
                                 </Button>
 
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    className="finances-page__action-btn--badge"
+                                    onClick={() => handlers.setPriceAdjustmentModalOpen(true)}
+                                    icon={<Icon name="price_change" size="1.1rem" />}
+                                    title={t('price_adjustment_title') || 'Ajuste de Aranceles por Inflación'}
+                                >
+                                    {t('adjust_tariffs') || 'Ajustar Aranceles'}
+                                    {controller.priceAdjustmentStatus?.isAdjustmentPending && (
+                                        <Badge 
+                                            position="top-right" 
+                                            variant="danger" 
+                                        />
+                                    )}
+                                </Button>
+
                                 <div className={styles.FinancesPage__dropdownContainer} ref={menuRef}>
                                     <Button
                                         variant="secondary"

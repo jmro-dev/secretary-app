@@ -16,6 +16,13 @@ module.exports = (financeController) => {
 
     router.get('/pricing', verifyToken, financeController.getPricing);
     router.post('/pricing', verifyToken, financeController.getPricing);
+
+    // Price Adjustments (#711)
+    router.get('/prices/inflation', verifyToken, financeController.getInflationAdjustment);
+    router.get('/prices/status', verifyToken, financeController.getPriceAdjustmentStatus);
+    router.get('/prices/preview', verifyToken, financeController.previewPriceIncrease);
+    router.post('/prices/apply', verifyToken, authorizePermission('can_crud_finances'), financeController.applyPriceIncrease);
+
     router.get('/patient-credit/:patientId', verifyToken, financeController.getPatientCredit);
     router.post('/transactions', verifyToken, authorizePermission('can_crud_finances'), upload.single('proof'), financeController.createTransaction);
     router.get('/transactions', verifyToken, financeController.getTransactions);

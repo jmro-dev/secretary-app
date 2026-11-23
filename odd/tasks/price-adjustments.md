@@ -19,8 +19,8 @@ Branch: `feat/711-price-adjustments` · Runner: `cd server && npx jest` · Deliv
 | ID | Specs | Ruta | Estado |
 |----|-------|------|--------|
 | T1 | S1,S2,S3,S8 | inline | done (commit A) |
-| T2 | S4,S5,S6,S7 | inline | pending |
-| T3 | S9 | inline | pending |
+| T2 | S4,S5,S6,S7 | inline | done |
+| T3 | S9 | inline | done |
 
 ## Log
 
@@ -45,4 +45,14 @@ Branch: `feat/711-price-adjustments` · Runner: `cd server && npx jest` · Deliv
 **D6**: El test de integración detectó "Illegal mix of collations (utf8mb4_general_ci vs utf8mb4_unicode_ci)" al comparar `price_changes.batch_id` con el parámetro del procedimiento. Se fijó explícitamente `CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci` en la columna/parámetro y la tabla. Sin esto el procedimiento fallaba en toda instalación.
 
 **V1** (evidence): `PRICE_ADJ_TEST_DB=test_clinical npx jest scripts/__tests__` → 7/7 verdes. `fn_round_price`: 23101→23500, 23500→23500, 70000→70000. Procedimiento con 12.5% sobre 23101→26000, 70000→79000, 45000→51000, 60000→67500. Guardas: `percent<=-100`, `batch_id` vacío y `batch_id` repetido rechazados. Precios restaurados tras el test.
+
+**L5** (23/11/2026): Implementación de endpoints REST (T2) y panel web (T3):
+- `server/services/finance/priceAdjustmentService.js` con soporte INDEC (ratio de índices), fallback a argentinadatos, caché en memoria de 6 h y timeout de 5 s.
+- Endpoints en `server/routes/finance/financeRoutes.js` y `server/controllers/finance/financeController.js`: `GET /api/finances/prices/inflation`, `GET /api/finances/prices/status`, `GET /api/finances/prices/preview`, `POST /api/finances/prices/apply` (con `verifyToken` + `can_crud_finances`).
+- Panel web en `client/src/features/finances/`: `PriceAdjustmentModal.jsx`, `PriceAdjustmentPreviewTable.jsx`, botón con badge condicional de ajuste pendiente (≥90 días) en toolbar de `FinancesPage.jsx`, integración en `useFinancesPageController.js` y `FinanceModalOrchestrator.jsx`.
+- Traducciones agregadas en `es/finances.js` y `en/finances.js`.
+
+**V2** (evidence): Suite de tests de backend `npx jest services/finance/priceAdjustmentService.test.js controllers/__tests__/financePriceAdjustments.test.js scripts/__tests__/price-adjustments.schema.test.js` → 23/23 tests verdes. Suite global de servidor: 40/40 suites, 318/318 tests pasando sin regresiones.
+
+**V3** (evidence): Build de frontend `npx vite build` exitoso (0 errores). Linters `stylelint` y `eslint` pasando limpios sin errores ni advertencias.
 

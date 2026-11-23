@@ -15,6 +15,7 @@ const initialState = {
     isActionLoading: false,
     modalOpen: false,
     pendingClosuresOpen: false,
+    priceAdjustmentModalOpen: false,
     editingTx: null,
     balancingModal: null
 };
@@ -26,6 +27,7 @@ function financesReducer(state, action) {
         case 'SET_LOADING': return { ...state, isActionLoading: action.payload };
         case 'SET_MODAL_OPEN': return { ...state, modalOpen: action.payload };
         case 'SET_CLOSURES_OPEN': return { ...state, pendingClosuresOpen: action.payload };
+        case 'SET_PRICE_ADJUSTMENT_MODAL_OPEN': return { ...state, priceAdjustmentModalOpen: action.payload };
         case 'SET_EDITING_TX': return { ...state, editingTx: action.payload };
         case 'SET_BALANCING_MODAL': return { ...state, balancingModal: action.payload };
         default: return state;
@@ -83,6 +85,10 @@ export const useFinancesPageController = ({ itemsPerPage = 14 } = {}) => {
         initialData: { success: true, data: [] }
     });
 
+    const { data: priceStatusResponse, refetch: fetchPriceStatus } = useFetch(`/finances/prices/status`, {
+        initialData: { success: true, data: null }
+    });
+
     // ECC: Unpack data
     const txData = txResponse?.data || {};
     const transactions = txData.transactions || [];
@@ -94,6 +100,7 @@ export const useFinancesPageController = ({ itemsPerPage = 14 } = {}) => {
     const totalDebt = statsResponse?.data?.totalDebt || 0;
     const rentalDebt = statsResponse?.data?.rentalDebt || 0;
     const pendingClosures = closuresResponse?.data || [];
+    const priceAdjustmentStatus = priceStatusResponse?.data || null;
 
     const loading = txLoading || doctorsLoading || isActionLoading;
     const fetched = txResponse !== undefined && !txLoading;
@@ -102,7 +109,8 @@ export const useFinancesPageController = ({ itemsPerPage = 14 } = {}) => {
         fetchTransactions();
         fetchStats();
         fetchClosures();
-    }, [fetchTransactions, fetchStats, fetchClosures]);
+        fetchPriceStatus();
+    }, [fetchTransactions, fetchStats, fetchClosures, fetchPriceStatus]);
 
     const baseHandlers = useFinanceHandlers({
         user, t, showMessage, confirm, alert,
@@ -162,6 +170,8 @@ export const useFinancesPageController = ({ itemsPerPage = 14 } = {}) => {
         selectedDoctorFilter,
         modalOpen,
         pendingClosuresOpen,
+        priceAdjustmentModalOpen: state.priceAdjustmentModalOpen,
+        priceAdjustmentStatus,
         balancingModal,
         editingTx,
         pendingClosures,
@@ -174,6 +184,7 @@ export const useFinancesPageController = ({ itemsPerPage = 14 } = {}) => {
             ...baseHandlers,
             onSelectDoctor,
             onOpenTodayBalancing,
+            setPriceAdjustmentModalOpen: (val) => dispatch({ type: 'SET_PRICE_ADJUSTMENT_MODAL_OPEN', payload: val }),
             setSearchQuery,
             onPageChange: (page) => dispatch({ type: 'SET_PAGE', payload: page }),
             calculateBalanceByMethod,
