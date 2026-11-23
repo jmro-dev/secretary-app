@@ -39,3 +39,10 @@ Branch: `feat/711-price-adjustments` · Runner: `cd server && npx jest` · Deliv
 **D4**: `patients.tariff_override` fuera de alcance: queda congelado y se abarata en términos relativos. Aceptado explícitamente.
 
 **D5**: Drift: redondeo sobre el valor vigente (estrategia A). Acotado a ±medio paso por ajuste y auditable.
+
+**L4** (23/11/2026) revisión del hook de commit: se corrigieron idempotencia de `batch_id` (rechaza reaplicar), `percent DECIMAL(10,4)`, `field` como ENUM, `DEFINER` removido del dump y se agregaron tests.
+
+**D6**: El test de integración detectó "Illegal mix of collations (utf8mb4_general_ci vs utf8mb4_unicode_ci)" al comparar `price_changes.batch_id` con el parámetro del procedimiento. Se fijó explícitamente `CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci` en la columna/parámetro y la tabla. Sin esto el procedimiento fallaba en toda instalación.
+
+**V1** (evidence): `PRICE_ADJ_TEST_DB=test_clinical npx jest scripts/__tests__` → 7/7 verdes. `fn_round_price`: 23101→23500, 23500→23500, 70000→70000. Procedimiento con 12.5% sobre 23101→26000, 70000→79000, 45000→51000, 60000→67500. Guardas: `percent<=-100`, `batch_id` vacío y `batch_id` repetido rechazados. Precios restaurados tras el test.
+

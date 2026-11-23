@@ -4,14 +4,22 @@
  * Crea la tabla price_changes, la función fn_round_price y el procedimiento
  * proc_apply_price_increase en una base ya existente. `scripts/setup.sh` solo
  * carga server/01-schema.sql cuando la base está vacía, por lo que este script
- * es la vía para instalaciones en producción.
+ * es la vía para instalaciones existentes.
  *
  * Uso: node server/scripts/migrate-price-adjustments.js
  *
- * Requiere un usuario con privilegios para crear rutinas (CREATE ROUTINE).
+ * Requisitos del usuario de base de datos:
+ * - CREATE ROUTINE (y DROP ROUTINE) para recrear función y procedimiento.
+ * - Si el servidor tiene binlog habilitado, crear una FUNCTION DETERMINISTIC
+ *   exige `log_bin_trust_function_creators = 1` o privilegios SUPER.
+ *
+ * Idempotente: tabla con IF NOT EXISTS y rutinas recreadas con DROP previo.
+ *
+ * Nota: el cuerpo de las rutinas está duplicado en server/01-schema.sql porque
+ * el dump se carga standalone en instalaciones nuevas. El test
+ * `server/scripts/__tests__/price-adjustments.schema.test.js` verifica que
+ * ambas copias no diverjan.
  */
-
-const { pool, dbReady } = require('../db');
 
 const CREATE_TABLE = `
 CREATE TABLE IF NOT EXISTS price_changes (
@@ -20,15 +28,16 @@ CREATE TABLE IF NOT EXISTS price_changes (
   changed_at timestamp NOT NULL DEFAULT current_timestamp(),
   scope enum('doctors','institutions') NOT NULL,
   target_id int(11) NOT NULL,
-  field varchar(50) NOT NULL,
+  field enum('consultation_price','prescription_price','medical_license_price','certificate_price','virtual_consultation_price','base_price') NOT NULL,
   old_value decimal(10,2) NOT NULL,
   new_value decimal(10,2) NOT NULL,
-  percent decimal(6,3) DEFAULT NULL,
+  percent decimal(10,4) DEFAULT NULL,
   rounding_step int(11) DEFAULT NULL,
   inflation_source varchar(50) DEFAULT NULL,
   inflation_period varchar(7) DEFAULT NULL,
   user_id int(11) DEFAULT NULL,
   PRIMARY KEY (id),
+  UNIQUE KEY uk_batch_target_field (batch_id, scope, target_id, field),
   KEY idx_batch (batch_id),
   KEY idx_target (scope, target_id, field)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
@@ -47,7 +56,7 @@ END
 
 const CREATE_PROCEDURE = `
 CREATE PROCEDURE proc_apply_price_increase(
-    IN p_batch_id CHAR(36),
+    IN p_batch_id CHAR(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
     IN p_percent DECIMAL(10,4),
     IN p_step INT,
     IN p_scope_doctors TINYINT(1),
@@ -77,6 +86,10 @@ BEGIN
     SET v_factor = 1 + (p_percent / 100);
 
     START TRANSACTION;
+
+    IF EXISTS (SELECT 1 FROM price_changes WHERE batch_id = p_batch_id) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'batch_id already applied';
+    END IF;
 
     IF p_scope_doctors = 1 THEN
         INSERT INTO price_changes (
@@ -173,6 +186,9 @@ END
 `;
 
 async function runMigration() {
+    // Requerido en forma diferida para que los tests puedan importar las
+    // constantes SQL sin inicializar el pool de la aplicación.
+    const { pool, dbReady } = require('../db');
     await dbReady;
     let conn;
     try {
@@ -200,8 +216,11 @@ async function runMigration() {
         } catch {
             // El pool ya puede estar cerrado; el resultado ya está definido.
         }
-        process.exit(process.exitCode || 0);
     }
 }
 
-runMigration();
+if (require.main === module) {
+    runMigration();
+}
+
+module.exports = { CREATE_TABLE, CREATE_FUNCTION, CREATE_PROCEDURE, runMigration };
