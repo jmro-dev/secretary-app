@@ -50,8 +50,10 @@ router.post('/patients/medications', verifyToken, medicationController.addPatien
 router.put('/patients/medications/:id', verifyToken, medicationController.updatePatientMedication);
 router.delete('/patients/medications/:id', verifyToken, medicationController.deletePatientMedication);
 
-// Files
+// Files & Audio Notes
+const audioUpload = require('../../middleware/audioUploadMiddleware');
 router.post('/files', verifyToken, upload.single('file'), medicalFileController.uploadFile);
+router.post('/audio-notes', verifyToken, audioUpload.single('file'), medicalFileController.uploadAudioNote);
 router.get('/files', verifyToken, medicalFileController.getPatientFiles);
 router.delete('/files/:id', verifyToken, medicalFileController.deleteFile);
 
