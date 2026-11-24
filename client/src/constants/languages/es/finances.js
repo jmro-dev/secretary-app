@@ -52,5 +52,12 @@ export const finances = {
     select_doctor_for_balancing: "Seleccionar profesional para arquear:",
     match_system_amount: "Coincide con sistema",
     quick_fill: "Llenar con Saldo Teórico",
+
+    // Price Adjustments (#711)
+    adjust_tariffs: "Ajustar Aranceles",
+    price_adjustment_title: "Ajuste de Aranceles por Inflación",
+    price_adjustment_immutable_notice: "Los copagos pactados individualmente (override) y transacciones pasadas son inmutables.",
+    loading_price_status: "Consultando estado de aranceles e IPC...",
+    apply_increase_button: "Confirmar y Aplicar",
 };
 

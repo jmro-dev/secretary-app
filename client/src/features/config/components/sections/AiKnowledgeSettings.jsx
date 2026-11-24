@@ -2,13 +2,17 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '@/api/axios';
 import { Icon } from '@/components/atoms/Icon';
 import { Button } from '@/components/atoms/Button';
+import { TabButton } from '@/components/atoms/TabButton';
+import { TabNav } from '@/components/molecules/TabNav';
 import { ConfigField } from '@/features/config/components/ui/ConfigField';
+import { TagInputField } from '@/features/config/components/ui/TagInputField';
 import { Loading } from '@/components/atoms/Loading';
 import toast from 'react-hot-toast';
 import styles from './AiKnowledgeSettings.module.css';
 import shared from '@/styles/shared.module.css';
 
 export const AiKnowledgeSettings = ({ settings = {}, updateSetting }) => {
+    const [subTab, setSubTab] = useState('behavior'); // 'behavior' | 'documents'
     const [documents, setDocuments] = useState([]);
     const [selectedDocId, setSelectedDocId] = useState('');
     const [isCreatingNew, setIsCreatingNew] = useState(false);
@@ -94,23 +98,30 @@ export const AiKnowledgeSettings = ({ settings = {}, updateSetting }) => {
         setIsCreatingNew(false);
         if (documents.length > 0) {
             handleSelectDoc(documents[0].document_id);
+        } else {
+            setSelectedDocId('');
+            setDocDraft({ title: '', content: '', category: 'general' });
         }
     };
 
     const handleSaveDoc = async () => {
         const finalDocId = isCreatingNew ? newDocId.trim() : selectedDocId;
 
-        if (!finalDocId || !docDraft.title.trim() || !docDraft.content.trim()) {
-            toast.error('Identificador, título y contenido son obligatorios');
+        if (!finalDocId) {
+            toast.error('El identificador del documento es requerido');
+            return;
+        }
+
+        if (!docDraft.title.trim() || !docDraft.content.trim()) {
+            toast.error('Título y contenido son obligatorios');
             return;
         }
 
         try {
             setSavingDoc(true);
-            const res = await api.post('/knowledge', {
-                document_id: finalDocId,
-                title: docDraft.title.trim(),
-                content: docDraft.content.trim(),
+            const res = await api.put(`/knowledge/${encodeURIComponent(finalDocId)}`, {
+                title: docDraft.title,
+                content: docDraft.content,
                 category: docDraft.category
             });
 
@@ -158,210 +169,224 @@ export const AiKnowledgeSettings = ({ settings = {}, updateSetting }) => {
 
     return (
         <div className={`${styles.AiKnowledgeSettings__root} ${shared.TabPanel} ${shared.AnimateFadeIn}`}>
-            {/* Sección 1: Rol y Reglas Operativas */}
-            <div className={shared.ConfigSection}>
-                <div className={shared.ConfigSection__header}>
-                    <Icon name="smart_toy" size="1.2rem" className={shared.ConfigSection__icon} />
-                    <h4 className={shared.ConfigSection__title}>Comportamiento y Rol del Asistente Virtual</h4>
-                </div>
-
-                <div className={shared.ConfigSection__body}>
-                    <ConfigField
-                        id="ai-role"
-                        label="Rol del Asistente"
-                        type="text"
-                        placeholder="Ej: Eres el asistente virtual oficial de atención..."
-                        value={role}
-                        onChange={setRole}
-                        description="Define la personalidad, función principal y límites del asistente."
-                    />
-
-                    <div className={styles.AiKnowledgeSettings__field}>
-                        <label className={styles.AiKnowledgeSettings__label} htmlFor="ai-rules">
-                            Reglas Operativas Obligatorias (Guardrails)
-                        </label>
-                        <textarea
-                            id="ai-rules"
-                            className={styles.AiKnowledgeSettings__textarea}
-                            rows={4}
-                            value={rules}
-                            onChange={(e) => setRules(e.target.value)}
-                            placeholder="Reglas de negocio (ej: no confirmar turnos definitivos, derivar emergencias...)"
-                        />
-                        <span className={styles.AiKnowledgeSettings__help}>
-                            Invariantes que el modelo de IA respetará en cada respuesta.
-                        </span>
-                    </div>
-
-                    <div className={styles.AiKnowledgeSettings__row}>
-                        <ConfigField
-                            id="ai-emergency-terms"
-                            label="Términos de Emergencia (separados por coma)"
-                            type="text"
-                            placeholder="suicidio, matarme, emergencia, guardia..."
-                            value={emergencyTerms}
-                            onChange={setEmergencyTerms}
-                            description="Palabras clave que derivan inmediatamente a líneas de crisis."
-                        />
-
-                        <ConfigField
-                            id="ai-restricted-terms"
-                            label="Términos Restringidos (separados por coma)"
-                            type="text"
-                            placeholder="receta urgente, clonazepam, derivación..."
-                            value={restrictedTerms}
-                            onChange={setRestrictedTerms}
-                            description="Términos que impiden emisión automática y derivan a secretaría."
-                        />
-                    </div>
-
-                    <div className={styles.AiKnowledgeSettings__actions}>
-                        <Button variant="primary" onClick={handleSaveAiSettings}>
-                            Guardar Comportamiento
-                        </Button>
-                    </div>
-                </div>
+            {/* Navegación interna por sub-pestañas para eliminar scrolls */}
+            <div className={styles.AiKnowledgeSettings__subTabs}>
+                <TabNav>
+                    <TabButton
+                        isActive={subTab === 'behavior'}
+                        onClick={() => setSubTab('behavior')}
+                        className={styles.AiKnowledgeSettings__subTabBtn}
+                    >
+                        <Icon name="psychology" size="1.1rem" />
+                        <span>Comportamiento y Reglas</span>
+                    </TabButton>
+                    <TabButton
+                        isActive={subTab === 'documents'}
+                        onClick={() => setSubTab('documents')}
+                        className={styles.AiKnowledgeSettings__subTabBtn}
+                    >
+                        <Icon name="library_books" size="1.1rem" />
+                        <span>Base de Conocimiento RAG ({documents.length})</span>
+                    </TabButton>
+                </TabNav>
             </div>
 
-            {/* Sección 2: Base de Conocimiento RAG (Documentos Normativos) */}
-            <div className={shared.ConfigSection}>
-                <div className={shared.ConfigSection__header}>
-                    <Icon name="library_books" size="1.2rem" className={shared.ConfigSection__icon} />
-                    <h4 className={shared.ConfigSection__title}>Base de Conocimiento RAG (Normativas de la Clínica)</h4>
-                </div>
+            {/* Pestaña 1: Rol, Guardrails y Términos con Tags */}
+            {subTab === 'behavior' && (
+                <div className={`${shared.ConfigSection} ${shared.AnimateFadeIn}`}>
+                    <div className={shared.ConfigSection__body}>
+                        <ConfigField
+                            id="ai-role"
+                            label="Rol del Asistente"
+                            type="text"
+                            placeholder="Ej: Eres el asistente virtual oficial de atención..."
+                            value={role}
+                            onChange={setRole}
+                            description="Define la personalidad, función principal y límites del asistente."
+                        />
 
-                <div className={shared.ConfigSection__body}>
-                    <div className={styles.AiKnowledgeSettings__headerAction}>
-                        <p className={styles.AiKnowledgeSettings__desc}>
-                            Estos documentos se inyectan en tiempo real al motor de IA para resolver consultas sobre convenios, honorarios, modalidades de atención y plazos de recetas sin alucinaciones.
-                        </p>
-                        <Button
-                            variant="secondary"
-                            onClick={handleStartNewDoc}
-                            disabled={isCreatingNew}
-                        >
-                            <Icon name="add" size="1rem" />
-                            <span>Nuevo Documento</span>
-                        </Button>
+                        <div className={styles.AiKnowledgeSettings__field}>
+                            <label className={styles.AiKnowledgeSettings__label} htmlFor="ai-rules">
+                                Reglas Operativas Obligatorias (Guardrails)
+                            </label>
+                            <textarea
+                                id="ai-rules"
+                                className={styles.AiKnowledgeSettings__textarea}
+                                rows={3}
+                                value={rules}
+                                onChange={(e) => setRules(e.target.value)}
+                                placeholder="Reglas de negocio (ej: no confirmar turnos definitivos, derivar emergencias...)"
+                            />
+                            <span className={styles.AiKnowledgeSettings__help}>
+                                Invariantes que el modelo de IA respetará en cada respuesta.
+                            </span>
+                        </div>
+
+                        <div className={styles.AiKnowledgeSettings__row}>
+                            <TagInputField
+                                id="ai-emergency-terms"
+                                label="Términos de Emergencia"
+                                placeholder="Escribe un término (ej: suicidio, crisis) y pulsa Enter"
+                                value={emergencyTerms}
+                                onChange={setEmergencyTerms}
+                                variant="danger"
+                                description="Palabras clave que derivan inmediatamente a líneas de crisis de salud mental."
+                            />
+
+                            <TagInputField
+                                id="ai-restricted-terms"
+                                label="Términos Restringidos"
+                                placeholder="Escribe un término (ej: clonazepam, receta urgente) y pulsa Enter"
+                                value={restrictedTerms}
+                                onChange={setRestrictedTerms}
+                                variant="warning"
+                                description="Términos que impiden emisión automática y derivan al personal de secretaría."
+                            />
+                        </div>
+
+                        <div className={styles.AiKnowledgeSettings__actions}>
+                            <Button variant="primary" onClick={handleSaveAiSettings}>
+                                <Icon name="save" size="1rem" />
+                                <span>Guardar Comportamiento</span>
+                            </Button>
+                        </div>
                     </div>
+                </div>
+            )}
 
-                    {loadingDocs ? (
-                        <Loading variant="centered" />
-                    ) : (
-                        <div className={styles.AiKnowledgeSettings__docContainer}>
-                            {/* Selector de Documentos */}
-                            <div className={styles.AiKnowledgeSettings__docList}>
-                                {documents.map((doc) => (
-                                    <button
-                                        key={doc.document_id}
-                                        type="button"
-                                        className={`${styles.AiKnowledgeSettings__docTab} ${!isCreatingNew && selectedDocId === doc.document_id ? styles['AiKnowledgeSettings__docTab--active'] : ''}`}
-                                        onClick={() => handleSelectDoc(doc.document_id)}
-                                    >
-                                        <Icon name="description" size="1rem" />
-                                        <span>{doc.title || doc.document_id}</span>
-                                    </button>
-                                ))}
+            {/* Pestaña 2: Base de Conocimiento RAG (Documentos Normativos) */}
+            {subTab === 'documents' && (
+                <div className={`${shared.ConfigSection} ${shared.AnimateFadeIn}`}>
+                    <div className={shared.ConfigSection__body}>
+                        <div className={styles.AiKnowledgeSettings__headerAction}>
+                            <Button
+                                variant="secondary"
+                                onClick={handleStartNewDoc}
+                                disabled={isCreatingNew}
+                            >
+                                <Icon name="add" size="1rem" />
+                                <span>Nuevo Documento</span>
+                            </Button>
+                        </div>
 
-                                {documents.length === 0 && !isCreatingNew && (
-                                    <div className={styles.AiKnowledgeSettings__empty}>
-                                        No hay documentos registrados. Haz clic en 'Nuevo Documento' para crear uno.
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Editor del Documento */}
-                            <div className={styles.AiKnowledgeSettings__docEditor}>
-                                {isCreatingNew ? (
-                                    <div className={styles.AiKnowledgeSettings__badgeCreating}>
-                                        <Icon name="note_add" size="1.1rem" />
-                                        <span>Creando Nuevo Documento Normativo</span>
-                                    </div>
-                                ) : null}
-
-                                {isCreatingNew ? (
-                                    <ConfigField
-                                        id="doc-id"
-                                        label="Identificador único (slug)"
-                                        type="text"
-                                        placeholder="ej: normativa-psicologia-aranceles"
-                                        value={newDocId}
-                                        onChange={setNewDocId}
-                                        description="Identificador sin espacios ni tildes (usar guiones medios)."
-                                    />
-                                ) : null}
-
-                                <div className={styles.AiKnowledgeSettings__row}>
-                                    <ConfigField
-                                        id="doc-title"
-                                        label="Título del Documento"
-                                        type="text"
-                                        placeholder="ej: Aranceles y Obras Sociales de Psicología"
-                                        value={docDraft.title}
-                                        onChange={(v) => setDocDraft(prev => ({ ...prev, title: v }))}
-                                    />
-
-                                    <ConfigField
-                                        id="doc-category"
-                                        label="Categoría"
-                                        type="text"
-                                        placeholder="aranceles, atencion, recetas, general..."
-                                        value={docDraft.category}
-                                        onChange={(v) => setDocDraft(prev => ({ ...prev, category: v }))}
-                                    />
-                                </div>
-
-                                <div className={styles.AiKnowledgeSettings__field}>
-                                    <label className={styles.AiKnowledgeSettings__label} htmlFor="doc-content">
-                                        Contenido Normativo (Markdown o Texto Plano)
-                                    </label>
-                                    <textarea
-                                        id="doc-content"
-                                        className={styles.AiKnowledgeSettings__textareaLarge}
-                                        rows={12}
-                                        value={docDraft.content}
-                                        onChange={(e) => setDocDraft(prev => ({ ...prev, content: e.target.value }))}
-                                        placeholder="Detalla convenios, excepciones, costos y directivas para la IA..."
-                                    />
-                                </div>
-
-                                <div className={styles.AiKnowledgeSettings__editorActions}>
-                                    {!isCreatingNew && selectedDocId ? (
-                                        <Button
-                                            variant="danger"
-                                            onClick={handleDeleteDoc}
-                                            disabled={deletingDoc}
+                        {loadingDocs ? (
+                            <Loading variant="centered" />
+                        ) : (
+                            <div className={styles.AiKnowledgeSettings__docContainer}>
+                                {/* Selector de Documentos */}
+                                <div className={styles.AiKnowledgeSettings__docList}>
+                                    {documents.map((doc) => (
+                                        <button
+                                            key={doc.document_id}
+                                            type="button"
+                                            className={`${styles.AiKnowledgeSettings__docTab} ${!isCreatingNew && selectedDocId === doc.document_id ? styles['AiKnowledgeSettings__docTab--active'] : ''}`}
+                                            onClick={() => handleSelectDoc(doc.document_id)}
                                         >
-                                            <Icon name="delete" size="1rem" />
-                                            <span>{deletingDoc ? 'Eliminando...' : 'Eliminar Documento'}</span>
-                                        </Button>
+                                            <Icon name="description" size="1rem" />
+                                            <span>{doc.title || doc.document_id}</span>
+                                        </button>
+                                    ))}
+
+                                    {documents.length === 0 && !isCreatingNew && (
+                                        <div className={styles.AiKnowledgeSettings__empty}>
+                                            No hay documentos registrados. Haz clic en 'Nuevo Documento' para crear uno.
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Editor del Documento */}
+                                <div className={styles.AiKnowledgeSettings__docEditor}>
+                                    {isCreatingNew ? (
+                                        <div className={styles.AiKnowledgeSettings__badgeCreating}>
+                                            <Icon name="note_add" size="1.1rem" />
+                                            <span>Creando Nuevo Documento Normativo</span>
+                                        </div>
                                     ) : null}
 
-                                    <div className={styles.AiKnowledgeSettings__rightActions}>
-                                        {isCreatingNew ? (
+                                    {isCreatingNew ? (
+                                        <ConfigField
+                                            id="doc-id"
+                                            label="Identificador único (slug)"
+                                            type="text"
+                                            placeholder="ej: normativa-psicologia-aranceles"
+                                            value={newDocId}
+                                            onChange={setNewDocId}
+                                            description="Identificador sin espacios ni tildes (usar guiones medios)."
+                                        />
+                                    ) : null}
+
+                                    <div className={styles.AiKnowledgeSettings__row}>
+                                        <ConfigField
+                                            id="doc-title"
+                                            label="Título del Documento"
+                                            type="text"
+                                            placeholder="ej: Aranceles y Obras Sociales de Psicología"
+                                            value={docDraft.title}
+                                            onChange={(val) => setDocDraft(prev => ({ ...prev, title: val }))}
+                                        />
+                                        <ConfigField
+                                            id="doc-category"
+                                            label="Categoría"
+                                            type="text"
+                                            placeholder="ej: aranceles, psiquiatria, turnos"
+                                            value={docDraft.category}
+                                            onChange={(val) => setDocDraft(prev => ({ ...prev, category: val }))}
+                                        />
+                                    </div>
+
+                                    <div className={styles.AiKnowledgeSettings__field}>
+                                        <label className={styles.AiKnowledgeSettings__label} htmlFor="doc-content">
+                                            Contenido Normativo
+                                        </label>
+                                        <textarea
+                                            id="doc-content"
+                                            className={styles.AiKnowledgeSettings__textareaLarge}
+                                            rows={8}
+                                            value={docDraft.content}
+                                            onChange={(e) => setDocDraft(prev => ({ ...prev, content: e.target.value }))}
+                                            placeholder="Detalla convenios, excepciones, costos y directivas para la IA..."
+                                        />
+                                    </div>
+
+                                    <div className={styles.AiKnowledgeSettings__editorActions}>
+                                        {!isCreatingNew && selectedDocId ? (
                                             <Button
-                                                variant="secondary"
-                                                onClick={handleCancelNewDoc}
-                                                disabled={savingDoc}
+                                                variant="danger"
+                                                onClick={handleDeleteDoc}
+                                                disabled={deletingDoc}
                                             >
-                                                Cancelar
+                                                <Icon name="delete" size="1rem" />
+                                                <span>{deletingDoc ? 'Eliminando...' : 'Eliminar Documento'}</span>
                                             </Button>
                                         ) : null}
 
-                                        <Button
-                                            variant="primary"
-                                            onClick={handleSaveDoc}
-                                            disabled={savingDoc}
-                                        >
-                                            {savingDoc ? 'Guardando...' : (isCreatingNew ? 'Crear Documento RAG' : 'Guardar y Actualizar RAG')}
-                                        </Button>
+                                        <div className={styles.AiKnowledgeSettings__rightActions}>
+                                            {isCreatingNew ? (
+                                                <Button
+                                                    variant="secondary"
+                                                    onClick={handleCancelNewDoc}
+                                                    disabled={savingDoc}
+                                                >
+                                                    Cancelar
+                                                </Button>
+                                            ) : null}
+
+                                            <Button
+                                                variant="primary"
+                                                onClick={handleSaveDoc}
+                                                disabled={savingDoc}
+                                            >
+                                                <Icon name="check" size="1rem" />
+                                                <span>{savingDoc ? 'Guardando...' : (isCreatingNew ? 'Crear Documento RAG' : 'Guardar y Actualizar RAG')}</span>
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };

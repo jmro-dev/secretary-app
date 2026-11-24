@@ -18,11 +18,6 @@ export const IntegrationRemoteAccess = ({ settings, updateSetting, onRefreshTunn
 
     return (
         <div className={`${shared.ConfigSection} ${shared.AnimateFadeIn}`}>
-            <div className={shared.ConfigSection__header}>
-                <span className={shared.ConfigSection__icon}><Icon name="language" /></span>
-                <h3 className={shared.ConfigSection__title}>{t('remote_access_title')}</h3>
-            </div>
-
             <div className={shared.ConfigSection__body}>
                 <p className={styles.IntegrationRemoteAccess__hint}>
                     {t('remote_access_description')}
