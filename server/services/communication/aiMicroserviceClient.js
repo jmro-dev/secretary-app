@@ -191,15 +191,45 @@ async function processInboundMessage({ sender: _sender, message, patientId, phon
                 };
             } else if (tool === 'getDoctorAvailability' && matchedDoc) {
                 const searchDate = params?.date ? formatDateOnlySQL(params.date) : new Date();
-                const availability = await availabilitySearchService.getNextFreeSlot({
-                    doctor_id: matchedDoc.id,
-                    start_date: searchDate,
-                    include_out_of_hours: 'false'
+                const [availability, rawSchedules] = await Promise.all([
+                    availabilitySearchService.getNextFreeSlot({
+                        doctor_id: matchedDoc.id,
+                        start_date: searchDate,
+                        include_out_of_hours: 'false'
+                    }),
+                    scheduleRepository.findByDoctor(matchedDoc.id).catch(() => [])
+                ]);
+
+                // Mapa de day_of_week -> default_type para enriquecer cada slot con su modalidad
+                const scheduleTypeByDay = {};
+                (Array.isArray(rawSchedules) ? rawSchedules : [])
+                    .filter(s => !s.is_break)
+                    .forEach(s => {
+                        scheduleTypeByDay[s.day_of_week] = s.default_type === 'virtual' ? 'Virtual' : 'Presencial';
+                    });
+
+                const enrichedResults = (availability?.results?.slice(0, 3) || []).map(r => {
+                    // date en formato 'YYYY-MM-DD'
+                    const [y, m, d] = (r.date || '').split('-').map(Number);
+                    const dateObj = (y && m && d) ? new Date(y, m - 1, d) : new Date(r.date);
+                    const dayOfWeek = dateObj.getDay();
+                    const dayModality = scheduleTypeByDay[dayOfWeek] || 'Presencial';
+
+                    return {
+                        date: r.date,
+                        dayName: r.dayName,
+                        modality: dayModality,
+                        slots: (r.slots || []).map(slot => ({
+                            time: slot.time,
+                            type: dayModality
+                        }))
+                    };
                 });
+
                 toolData = {
                     doctorId: matchedDoc.id,
                     doctorName: matchedDoc.name,
-                    results: availability?.results?.slice(0, 3) || []
+                    results: enrichedResults
                 };
             }
 
@@ -229,7 +259,7 @@ async function processInboundMessage({ sender: _sender, message, patientId, phon
 
         // 1. Si el microservicio requiere crear una pre-reserva de turno
         let pendingBookingCreated = false;
-        if (aiResult.actionRequired === 'CREATE_PENDING_BOOKING') {
+        if (['CREATE_PENDING_BOOKING', 'EXECUTE_ACTION'].includes(aiResult.actionRequired)) {
             const doctorId = await resolveBookingDoctor(aiResult, patientId, doctors);
             if (!doctorId) {
                 // Sin médico resoluble no se inventa un id: se registra y se responde lo sugerido.
@@ -263,7 +293,7 @@ async function processInboundMessage({ sender: _sender, message, patientId, phon
         // 2. Si el microservicio generó una respuesta sugerida, despacharla al paciente
         // Si se requería crear una pre-reserva pero no hubo slot disponible ni médico resoluble,
         // no se envía una respuesta que afirme que el turno quedó agendado.
-        if (aiResult.actionRequired === 'CREATE_PENDING_BOOKING' && !pendingBookingCreated) {
+        if (['CREATE_PENDING_BOOKING', 'EXECUTE_ACTION'].includes(aiResult.actionRequired) && !pendingBookingCreated) {
             console.warn('[AI Microservice] Pre-reserva requerida pero no creada; derivando a secretaría humana sin confirmar falsamente.', { patientId });
             const whatsappService = require('./whatsappService');
             await whatsappService.sendMessageDirect(

@@ -1,5 +1,5 @@
 .MessageTemplateEditor__root {
-    margin-bottom: var(--spacing-xl);
+    margin-bottom: var(--spacing-md);
 }
 
 .MessageTemplateEditor__label {
@@ -14,13 +14,13 @@
 
 .MessageTemplateEditor__textarea {
     width: 100%;
-    min-height: 120px;
-    padding: var(--spacing-md);
-    border-radius: var(--radius-lg);
+    min-height: 90px;
+    padding: var(--spacing-sm);
+    border-radius: var(--radius-md);
     border: 1px solid var(--border-color);
     font-family: inherit;
-    font-size: 0.95rem;
-    line-height: 1.6;
+    font-size: 0.9rem;
+    line-height: 1.5;
     color: var(--text-main);
     resize: vertical;
     transition: all 0.2s;
@@ -35,7 +35,7 @@
 }
 
 .MessageTemplateEditor__variables {
-    margin-top: var(--spacing-md);
+    margin-top: var(--spacing-xs);
 }
 
 .MessageTemplateEditor__variablesLabel {

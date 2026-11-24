@@ -1,0 +1,237 @@
+/* PriceAdjustmentModal Component Styles (BEM) */
+
+.PriceAdjustmentModal__container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md, 16px);
+}
+
+.PriceAdjustmentModal__statusCard {
+    background-color: var(--card-surface-bg, #f8fafc);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: var(--radius-md, 8px);
+    padding: var(--spacing-md, 16px);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm, 8px);
+}
+
+.PriceAdjustmentModal__statusHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm, 8px);
+    flex-wrap: wrap;
+}
+
+.PriceAdjustmentModal__statusTitle {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary, #0f172a);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs, 6px);
+}
+
+.PriceAdjustmentModal__statusMeta {
+    display: flex;
+    gap: var(--spacing-lg, 24px);
+    font-size: 0.85rem;
+    color: var(--text-secondary, #64748b);
+    flex-wrap: wrap;
+}
+
+.PriceAdjustmentModal__statusMeta strong {
+    color: var(--text-primary, #0f172a);
+}
+
+.PriceAdjustmentModal__inflationBanner {
+    background-color: rgb(59, 130, 246, 0.08);
+    border: 1px solid rgb(59, 130, 246, 0.25);
+    border-radius: var(--radius-md, 8px);
+    padding: var(--spacing-sm, 12px) var(--spacing-md, 16px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md, 16px);
+    flex-wrap: wrap;
+}
+
+.PriceAdjustmentModal__inflationInfo {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm, 10px);
+    font-size: 0.88rem;
+    color: var(--text-primary, #0f172a);
+}
+
+.PriceAdjustmentModal__inflationPercent {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--primary-color, #2563eb);
+}
+
+.PriceAdjustmentModal__formGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--spacing-md, 16px);
+    background-color: var(--dashboard-card-bg, #fff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: var(--radius-md, 8px);
+    padding: var(--spacing-md, 16px);
+}
+
+.PriceAdjustmentModal__fieldGroup {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs, 6px);
+}
+
+.PriceAdjustmentModal__label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-primary, #1e293b);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.PriceAdjustmentModal__input {
+    padding: var(--spacing-sm, 8px) var(--spacing-md, 12px);
+    border: 1px solid var(--border-color, #cbd5e1);
+    border-radius: var(--radius-sm, 6px);
+    font-size: 0.95rem;
+    background-color: var(--input-bg, #fff);
+    color: var(--text-primary, #0f172a);
+}
+
+.PriceAdjustmentModal__input:focus {
+    outline: none;
+    border-color: var(--primary-color, #2563eb);
+    box-shadow: 0 0 0 2px rgb(37, 99, 235, 0.15);
+}
+
+.PriceAdjustmentModal__tableInput {
+    width: 110px;
+    padding: 4px 6px;
+    border: 1px solid var(--border-color, #cbd5e1);
+    border-radius: var(--radius-sm, 6px);
+    text-align: right;
+    font-size: 0.82rem;
+}
+
+.PriceAdjustmentModal__helperText {
+    font-size: 0.75rem;
+    color: var(--text-muted, #94a3b8);
+}
+
+.PriceAdjustmentModal__fieldGroupWide {
+    grid-column: span 2;
+}
+
+.PriceAdjustmentModal__scopeGroup {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs, 6px);
+    grid-column: 1 / -1;
+}
+
+.PriceAdjustmentModal__checkboxLabel {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm, 8px);
+    font-size: 0.88rem;
+    color: var(--text-primary, #1e293b);
+    cursor: pointer;
+}
+
+.PriceAdjustmentModal__previewActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-sm, 8px);
+    margin-top: var(--spacing-xs, 4px);
+}
+
+.PriceAdjustmentModal__tableContainer {
+    background-color: var(--dashboard-card-bg, #fff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: var(--radius-md, 8px);
+    overflow: auto;
+    max-height: 320px;
+}
+
+.PriceAdjustmentModal__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.PriceAdjustmentModal__table th {
+    background-color: var(--card-surface-bg, #f1f5f9);
+    padding: var(--spacing-sm, 8px) var(--spacing-md, 12px);
+    text-align: left;
+    font-weight: 700;
+    color: var(--text-muted, #64748b);
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.PriceAdjustmentModal__table td {
+    padding: var(--spacing-sm, 8px) var(--spacing-md, 12px);
+    border-bottom: 1px solid var(--border-color, #f1f5f9);
+    color: var(--text-primary, #1e293b);
+}
+
+.PriceAdjustmentModal__cellRight {
+    text-align: right;
+}
+
+.PriceAdjustmentModal__cellBold {
+    font-weight: 700;
+}
+
+.PriceAdjustmentModal__increaseTag {
+    color: #16a34a;
+    font-weight: 700;
+    background-color: rgb(22, 163, 74, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+}
+
+.PriceAdjustmentModal__increaseTagNeutral {
+    color: var(--text-secondary, #64748b);
+    font-weight: 700;
+    background-color: rgb(100, 116, 139, 0.12);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+}
+
+.PriceAdjustmentModal__notice {
+    font-size: 0.8rem;
+    color: var(--text-secondary, #64748b);
+    background-color: var(--card-surface-bg, #f8fafc);
+    border-left: 3px solid var(--primary-color, #2563eb);
+    padding: var(--spacing-sm, 8px) var(--spacing-md, 12px);
+    border-radius: 0 var(--radius-sm, 4px) var(--radius-sm, 4px) 0;
+}
+
+.PriceAdjustmentModal__footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-md, 16px);
+    width: 100%;
+    flex-wrap: wrap;
+}
+
+.PriceAdjustmentModal__footerButtons {
+    display: flex;
+    gap: var(--spacing-sm, 8px);
+    align-items: center;
+}

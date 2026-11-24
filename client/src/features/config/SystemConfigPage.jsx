@@ -5,7 +5,6 @@ import { loadDefaultConfigSections } from './components/ConfigRegistryLoader';
 
 // Global Atomic Components
 import { MainLayout } from '@/components/templates/MainLayout';
-import { Icon } from '@/components/atoms/Icon';
 import { Loading } from '@/components/atoms/Loading';
 import { FeatureToolbar } from '@/components/organisms/FeatureToolbar';
 import { QRCodeModal } from '@/features/patients/components/modals/QRCodeModal';
@@ -18,24 +17,14 @@ import shared from '@/styles/shared.module.css';
  * Renders the active configuration section based on the registry.
  */
 const SettingsContent = ({ activeTab, controller }) => {
-    const { t } = controller;
     const section = useMemo(() => getConfigSection(activeTab), [activeTab]);
 
     if (!section) return null;
 
-    const { metadata, Component } = section;
+    const { Component } = section;
 
     return (
         <section className={`${shared.ConfigSection} -up`}>
-            <header className={shared.ConfigSection__header}>
-                <div className={shared.ConfigSection__icon}>
-                    <Icon name={metadata.icon} size="1.5rem" />
-                </div>
-                <div className={shared.ConfigSection__text}>
-                    <h2 className={shared.ConfigSection__title}>{metadata.title}</h2>
-                    <p className={shared.ConfigSection__desc}>{metadata.desc}</p>
-                </div>
-            </header>
             <div className={shared.ConfigSection__body}>
                 <Suspense fallback={<Loading variant="centered" />}>
                     <Component controller={controller} />
@@ -74,7 +63,11 @@ export const SystemConfigPage = () => {
         })), [visibleSections]);
 
     return (
-        <MainLayout title={t('config')}>
+        <MainLayout
+            title={t('config')}
+            hideSearch={true}
+            hideDoctorSelector={true}
+        >
             <div className={styles.SystemConfigPage__root}>
                 <FeatureToolbar
                     tabs={tabs.length > 0 ? tabs : [

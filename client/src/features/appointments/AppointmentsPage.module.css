@@ -135,16 +135,24 @@
     width: 100%;
     min-width: 0;
     flex-shrink: 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) transparent;
 }
 
-.AppointmentsPage__panelCalendar::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-}
+@supports not (scrollbar-color: auto) {
+    .AppointmentsPage__panelCalendar {
+        scrollbar-width: auto;
+    }
 
-.AppointmentsPage__panelCalendar::-webkit-scrollbar-thumb {
-    background: var(--border-color);
-    border-radius: var(--radius-sm);
+    .AppointmentsPage__panelCalendar::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+
+    .AppointmentsPage__panelCalendar::-webkit-scrollbar-thumb {
+        background: var(--border-color);
+        border-radius: var(--radius-sm);
+    }
 }
 
 .AppointmentsPage__panelAgenda {
@@ -154,16 +162,24 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) transparent;
 }
 
-.AppointmentsPage__panelAgenda::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-}
+@supports not (scrollbar-color: auto) {
+    .AppointmentsPage__panelAgenda {
+        scrollbar-width: auto;
+    }
 
-.AppointmentsPage__panelAgenda::-webkit-scrollbar-thumb {
-    background: var(--border-color);
-    border-radius: var(--radius-sm);
+    .AppointmentsPage__panelAgenda::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+
+    .AppointmentsPage__panelAgenda::-webkit-scrollbar-thumb {
+        background: var(--border-color);
+        border-radius: var(--radius-sm);
+    }
 }
 
 .AppointmentsPage__panelSearch, .AppointmentsPage__panelUpcoming {

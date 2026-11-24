@@ -15,11 +15,6 @@ export const IntegrationMetaWhatsApp = ({ settings, updateSetting, onTestMeta, l
 
     return (
         <div className={`${shared.ConfigSection} ${shared.AnimateFadeIn}`}>
-            <div className={shared.ConfigSection__header}>
-                <span className={shared.ConfigSection__icon}><Icon name="chat" /></span>
-                <h3 className={shared.ConfigSection__title}>{t('meta_whatsapp_title')}</h3>
-            </div>
-
             <div className={shared.ConfigSection__body}>
                 <p className={styles.IntegrationMetaWhatsApp__hint}>
                     {t('meta_whatsapp_description')}
