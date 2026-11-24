@@ -290,6 +290,8 @@ export const general = {
     paying_institution: "Paying Institution",
     phone_copied: "Phone copied to clipboard",
     phone_th: "Phone",
+    clinic_name_hint: "Commercial or institutional name of the clinic/practice.",
+    clinic_name_label: "Clinic / Practice Name",
     physical_address_hint: "Street address, number, city.",
     physical_address_label: "Physical Address",
     placeholder_data_req: "Patient data required...",

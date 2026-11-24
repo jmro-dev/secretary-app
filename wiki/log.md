@@ -1,5 +1,9 @@
 # Wiki Log
 
+## 2026-11-20
+
+* **Manual edit (targeted)**: updated the action vocabulary in [flows/whatsapp-ai-assistance.md](./flows/whatsapp-ai-assistance.md) after `#710` — `EXECUTE_ACTION` is the generic action, `CREATE_PENDING_BOOKING` remains valid for compatibility. The broader 36-commit drift reported by the hook is still pending a full `wikipoke-ingest` reconcile.
+
 ## 2026-11-16
 
 * **wikipoke-ingest (reconcile)**: reconciled drift up to commit `48185ad7`.

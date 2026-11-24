@@ -28,11 +28,6 @@ export const IntegrationGoogleCalendar = ({
 
     return (
         <div className={`${shared.ConfigSection} ${shared.AnimateFadeIn}`}>
-            <div className={shared.ConfigSection__header}>
-                <span className={shared.ConfigSection__icon}><Icon name="calendar_today" /></span>
-                <h2 className={shared.ConfigSection__title}>{t('google_calendar_title')}</h2>
-            </div>
-
             <div className={shared.ConfigSection__body}>
                 <div className={styles.IntegrationGoogleCalendar__group}>
                     <div className={styles.IntegrationGoogleCalendar__groupHeader}>

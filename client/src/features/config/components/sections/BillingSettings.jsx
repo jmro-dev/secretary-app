@@ -147,10 +147,6 @@ export const BillingSettings = ({ user, settings = EMPTY_SETTINGS, updateSetting
         <div className={`${sharedStyles.TabPanel} ${sharedStyles.AnimateFadeIn}`}>
             {/* AFIP Global Environment & Health Verification */}
             <div className={sharedStyles.ConfigSection}>
-                <div className={sharedStyles.ConfigSection__header}>
-                    <span className={sharedStyles.ConfigSection__icon}><Icon name="receipt_long" /></span>
-                    <h4 className={sharedStyles.ConfigSection__title}>{t('billing_settings_title')}</h4>
-                </div>
                 <div className={sharedStyles.ConfigSection__body}>
                     <div className={`${sharedStyles.ConfigGrid} ${sharedStyles['ConfigGrid--2col']}`}>
                         <ConfigField

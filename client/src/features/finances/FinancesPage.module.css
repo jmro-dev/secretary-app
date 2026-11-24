@@ -68,3 +68,93 @@
     gap: var(--spacing-sm, 8px);
 }
 
+.FinancesPage__pricePanel {
+    margin-bottom: var(--spacing-lg, 1.5rem);
+    background: var(--dashboard-card-bg, #fff);
+    border: 1px solid var(--dashboard-card-border, #e2e8f0);
+    border-radius: var(--radius-lg, 12px);
+    padding: var(--spacing-md, 16px);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md, 16px);
+}
+
+.FinancesPage__pricePanelHeader {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: baseline;
+}
+
+.FinancesPage__pricePanelTitle {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.FinancesPage__pricePanelNote {
+    font-size: 0.78rem;
+    color: var(--text-secondary, #64748b);
+}
+
+.FinancesPage__priceGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: var(--spacing-md, 16px);
+}
+
+.FinancesPage__priceCard {
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: var(--radius-md, 8px);
+    padding: var(--spacing-sm, 12px);
+    background: var(--card-surface-bg, #fff);
+}
+
+.FinancesPage__priceCardTitle {
+    margin: 0 0 10px;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-secondary, #64748b);
+}
+
+.FinancesPage__kvList {
+    display: grid;
+    gap: 8px;
+}
+
+.FinancesPage__kvList div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 0.85rem;
+}
+
+.FinancesPage__miniTableWrap {
+    overflow: auto;
+}
+
+.FinancesPage__miniTable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+}
+
+.FinancesPage__miniTable th,
+.FinancesPage__miniTable td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    text-align: left;
+    white-space: nowrap;
+}
+
+.FinancesPage__empty {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--text-secondary, #64748b);
+}
+

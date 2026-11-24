@@ -94,7 +94,7 @@ describe('BillingSettings', () => {
             />
         );
 
-        expect(screen.getByText('billing_settings_title')).toBeInTheDocument();
+        expect(screen.getByText('afip_environment')).toBeInTheDocument();
         expect(screen.getByText('doctor_fiscal_status_title')).toBeInTheDocument();
         expect(screen.getByText('Dr. Gregory House')).toBeInTheDocument();
         expect(screen.getByText('Dr. John Watson')).toBeInTheDocument();
