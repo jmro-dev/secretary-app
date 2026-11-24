@@ -6,7 +6,12 @@ import type { SystemConfig } from '../schemas.js';
 export interface AIAnalysisResult {
   intent: string;
   confidence: number;
-  actionRequired: 'REPLY_ONLY' | 'CREATE_PENDING_BOOKING' | 'ESCALATE_HUMAN' | 'CALL_TOOL';
+  /**
+   * Acción a ejecutar, decidida por el cliente. El motor no impone un vocabulario
+   * de dominio; valores convencionales: REPLY_ONLY, EXECUTE_ACTION, ESCALATE_HUMAN,
+   * CALL_TOOL. El backend interpreta el valor que reciba.
+   */
+  actionRequired: string;
   toolCall?: {
     tool: string;
     params?: Record<string, any>;
@@ -30,7 +35,7 @@ export type AIProcessResult = AIAnalysisResult | InferenceUnavailable;
 const AIOutputSchema = z.object({
   intent: z.string().min(1).max(100),
   confidence: z.number().min(0).max(1),
-  actionRequired: z.enum(['REPLY_ONLY', 'CREATE_PENDING_BOOKING', 'ESCALATE_HUMAN', 'CALL_TOOL']),
+  actionRequired: z.string().min(1).max(50),
   toolCall: z.object({
     tool: z.string().min(1).max(100),
     params: z.record(z.string(), z.any()).optional()
@@ -70,7 +75,7 @@ Debes responder ÚNICAMENTE un objeto JSON válido con este esquema exacto:
 {
   "intent": ${intents},
   "confidence": 0.0 a 1.0,
-  "actionRequired": "REPLY_ONLY" | "CREATE_PENDING_BOOKING" | "ESCALATE_HUMAN" | "CALL_TOOL",
+  "actionRequired": "REPLY_ONLY" | "EXECUTE_ACTION" | "ESCALATE_HUMAN" | "CALL_TOOL",
   "toolCall": { "tool": ${toolEnum}, "params": { } } (solo si actionRequired es CALL_TOOL),
   "entities": { ...claves relevantes del dominio según el contexto... },
   "suggestedReply": "texto claro y profesional",
@@ -136,7 +141,7 @@ export class AIService {
           return {
             ...geminiRes,
             latencyMs: Date.now() - start,
-            engineUsed: 'gemini-3.5-flash-lite'
+            engineUsed: this.geminiModel
           };
         }
       } catch (err: any) {
@@ -151,7 +156,7 @@ export class AIService {
         return {
           ...ollamaRes,
           latencyMs: Date.now() - start,
-          engineUsed: 'ollama-qwen2.5:3b'
+          engineUsed: this.ollamaModel
         };
       }
     } catch {

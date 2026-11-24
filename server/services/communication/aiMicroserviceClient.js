@@ -259,7 +259,7 @@ async function processInboundMessage({ sender: _sender, message, patientId, phon
 
         // 1. Si el microservicio requiere crear una pre-reserva de turno
         let pendingBookingCreated = false;
-        if (aiResult.actionRequired === 'CREATE_PENDING_BOOKING') {
+        if (['CREATE_PENDING_BOOKING', 'EXECUTE_ACTION'].includes(aiResult.actionRequired)) {
             const doctorId = await resolveBookingDoctor(aiResult, patientId, doctors);
             if (!doctorId) {
                 // Sin médico resoluble no se inventa un id: se registra y se responde lo sugerido.
@@ -293,7 +293,7 @@ async function processInboundMessage({ sender: _sender, message, patientId, phon
         // 2. Si el microservicio generó una respuesta sugerida, despacharla al paciente
         // Si se requería crear una pre-reserva pero no hubo slot disponible ni médico resoluble,
         // no se envía una respuesta que afirme que el turno quedó agendado.
-        if (aiResult.actionRequired === 'CREATE_PENDING_BOOKING' && !pendingBookingCreated) {
+        if (['CREATE_PENDING_BOOKING', 'EXECUTE_ACTION'].includes(aiResult.actionRequired) && !pendingBookingCreated) {
             console.warn('[AI Microservice] Pre-reserva requerida pero no creada; derivando a secretaría humana sin confirmar falsamente.', { patientId });
             const whatsappService = require('./whatsappService');
             await whatsappService.sendMessageDirect(

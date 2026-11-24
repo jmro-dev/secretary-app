@@ -178,7 +178,11 @@ components:
                   type: string
                 actionRequired:
                   type: string
-                  enum: [REPLY_ONLY, CREATE_PENDING_BOOKING, ESCALATE_HUMAN, CALL_TOOL]
+                  enum: [REPLY_ONLY, EXECUTE_ACTION, CREATE_PENDING_BOOKING, ESCALATE_HUMAN, CALL_TOOL]
+                  description: >-
+                    Acción que dispara el guardrail. `EXECUTE_ACTION` es la acción
+                    genérica; `CREATE_PENDING_BOOKING` se acepta por compatibilidad
+                    (deprecado).
             restrictedGuardrail:
               type: object
               required: [terms, reply, actionRequired]
@@ -191,7 +195,11 @@ components:
                   type: string
                 actionRequired:
                   type: string
-                  enum: [REPLY_ONLY, CREATE_PENDING_BOOKING, ESCALATE_HUMAN, CALL_TOOL]
+                  enum: [REPLY_ONLY, EXECUTE_ACTION, CREATE_PENDING_BOOKING, ESCALATE_HUMAN, CALL_TOOL]
+                  description: >-
+                    Acción que dispara el guardrail. `EXECUTE_ACTION` es la acción
+                    genérica; `CREATE_PENDING_BOOKING` se acepta por compatibilidad
+                    (deprecado).
             allowedIntents:
               type: array
               items:
@@ -244,12 +252,13 @@ components:
           example: 0.96
         actionRequired:
           type: string
-          enum:
-            - CREATE_PENDING_BOOKING
-            - REPLY_ONLY
-            - ESCALATE_HUMAN
-            - CALL_TOOL
-          example: CREATE_PENDING_BOOKING
+          maxLength: 50
+          description: >-
+            Acción que el cliente debe ejecutar. El motor no impone un vocabulario
+            de dominio. Valores convencionales: `REPLY_ONLY`, `EXECUTE_ACTION`,
+            `ESCALATE_HUMAN`, `CALL_TOOL`. `CREATE_PENDING_BOOKING` sigue siendo
+            válido por compatibilidad (deprecado).
+          example: EXECUTE_ACTION
         toolCall:
           type: object
           required: [tool]
