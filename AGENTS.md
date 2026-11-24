@@ -34,7 +34,7 @@ Todos los agentes de IA y desarrolladores deben cumplir estrictamente las reglas
 - **Stateless AI:** `secretary-app` es la **dueña del estado relacional** (MySQL). Es responsable de inyectar en el microservicio un `systemConfig` dinámico (rol, reglas operativas, tools, intenciones y guardrails leídos de `system_settings`) y un `businessContext` en vivo (institución, médicos, aranceles y `clinic_knowledge_documents`), junto con los últimos mensajes en `conversationHistory`.
 - **Human-in-the-Loop Obligatorio:**
   - La IA **NUNCA confirma turnos definitivos** automáticamente por WhatsApp.
-  - La IA únicamente genera solicitudes en `pending_bookings` (`actionRequired: 'CREATE_PENDING_BOOKING'`) para que la secretaria humana revise y confirme desde el panel web.
+  - La IA únicamente genera solicitudes en `pending_bookings` (`actionRequired: 'EXECUTE_ACTION'`; `'CREATE_PENDING_BOOKING'` se acepta por compatibilidad) para que la secretaria humana revise y confirme desde el panel web.
 - **Invariante de Prescripción Cero:** Prohibido emitir o autorizar recetas automáticamente por chat. Los pedidos de recetas van a la bandeja de pendientes médicas con plazo de hasta 72 hs hábiles.
 
 ---
