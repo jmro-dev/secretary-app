@@ -294,7 +294,7 @@ describe('PriceAdjustmentService', () => {
             expect(result.step).toBe(500);
 
             expect(pool.query).toHaveBeenCalledWith(
-                'CALL proc_apply_price_increase(?, ?, ?, ?, ?, ?, ?, ?)',
+                'CALL proc_apply_price_increase(?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [
                     result.batchId,
                     15.0,
@@ -303,7 +303,8 @@ describe('PriceAdjustmentService', () => {
                     1, // scopeInstitutions
                     'INDEC',
                     '2026-10',
-                    42
+                    42,
+                    null
                 ]
             );
         });
@@ -366,14 +367,14 @@ describe('PriceAdjustmentService', () => {
             expect(result.source).toBe('manual');
             expect(result.ledgerRecorded).toBe(true);
 
-            expect(pool.query).toHaveBeenCalledWith(
-                'UPDATE doctors SET consultation_price = ? WHERE id = ?',
-                [90000, 1]
-            );
-            expect(pool.query).toHaveBeenCalledWith(
-                expect.stringContaining('UPDATE price_changes'),
-                [90000, batchId, 'doctors', 1, 'consultation_price']
-            );
+            const call = pool.query.mock.calls.find(([sql]) => sql.includes('CALL proc_apply_price_increase'));
+            expect(call[1][8]).toBe(90000);
+            expect(pool.query.mock.calls.some(
+                ([sql]) => typeof sql === 'string' && sql.includes('UPDATE doctors SET')
+            )).toBe(false);
+            expect(pool.query.mock.calls.some(
+                ([sql]) => typeof sql === 'string' && sql.includes('UPDATE price_changes')
+            )).toBe(false);
         });
 
         it('keeps per-row prices in the ledger when a manual applied price is supplied', async () => {
@@ -429,11 +430,8 @@ describe('PriceAdjustmentService', () => {
             expect(ledgerCalls[1][1][10]).toBe(60000);
             expect(ledgerCalls[1][1][16]).toBe('accepted_with_adjustment');
 
-            const manualPriceUpdates = pool.query.mock.calls.filter(
-                ([sql]) => typeof sql === 'string' && sql.includes('UPDATE doctors SET consultation_price = ?')
-            );
-            expect(manualPriceUpdates).toHaveLength(1);
-            expect(manualPriceUpdates[0][1]).toEqual([90000, 1]);
+            const call = pool.query.mock.calls.find(([sql]) => sql.includes('CALL proc_apply_price_increase'));
+            expect(call[1][8]).toBe(90000);
         });
 
         it('rejects percent <= -100', async () => {

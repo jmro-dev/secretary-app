@@ -124,10 +124,10 @@ Seguir `server/scripts/run-granular-migration.js:1-74`: `await dbReady`, `pool.g
 | 1. Esquema | `CREATE TABLE IF NOT EXISTS` para las cuatro tablas; `ALTER TABLE ... ADD COLUMN` solo para columnas ausentes de `price_changes`. | `information_schema.TABLES` y `information_schema.COLUMNS`. |
 | 2. Backfill | Poblar periodos y ledger desde `price_changes`, sin modificar precios vigentes. | Reglas de la sección 6. |
 | 3. Índices | Verificar `information_schema.STATISTICS` y crear solo los índices faltantes en tablas preexistentes; `CREATE TABLE IF NOT EXISTS` no repara índices ausentes. | Nombre de tabla, índice y columnas. |
-| 4. Rutinas | Crear la rutina nueva de doble registro dentro de una transacción, conservando la firma de 8 parámetros de `proc_apply_price_increase` para los llamadores actuales. Mantener guarda de replay, `EXIT HANDLER` y `COMMIT`. | `information_schema.ROUTINES`; `DROP`/`CREATE` solo tras confirmación. |
+| 4. Rutinas | Recrear `proc_apply_price_increase` con 9 parámetros: el noveno, `p_applied_price`, aplica el override manual a la primera fila del batch antes de actualizar precios, dentro de la misma transacción. Mantener guarda de replay, `EXIT HANDLER` y `COMMIT`. | `information_schema.ROUTINES`; `DROP`/`CREATE` solo tras confirmación. |
 | 5. Servicio, rutas y tests | Persistir `period`, `reason`, `source` y `status`; mapear respuestas al contrato; ejecutar Hurl y Jest. | `openapi.yaml` y tests existentes. |
 
-El espejo en `server/01-schema.sql` quedó consolidado en un único bloque vigente (`server/01-schema.sql:2811-3055`); el bloque duplicado anterior fue eliminado.
+El espejo en `server/01-schema.sql` quedó consolidado en un único bloque vigente (`server/01-schema.sql:2811-3076`); el bloque duplicado anterior fue eliminado.
 
 ## 6. Reglas de backfill desde `price_changes` y límites
 
@@ -143,7 +143,7 @@ El espejo en `server/01-schema.sql` quedó consolidado en un único bloque vigen
 ## 7. Riesgos y confirmaciones humanas requeridas
 
 - [x] DDL: crear cuatro tablas y los tres `ALTER` opcionales. Confirmación humana recibida; backup lógico previo en `/tmp/clinical_management_before_price_adjustments.sql`.
-- [x] Reemplazo de routines: se conservó la firma de 8 parámetros de `proc_apply_price_increase` y se recrearon `fn_round_price` y el procedimiento desde `server/scripts/migrate-price-adjustments.js`.
+- [x] Reemplazo de routines: `proc_apply_price_increase` pasó a 9 parámetros con `p_applied_price` para aplicar el override manual de forma atómica; se recrearon `fn_round_price` y el procedimiento desde `server/scripts/migrate-price-adjustments.js`.
 - [ ] Semántica de `verdict`: se propone `margin = appliedCumulative - inflationYoY`; con `0.45`, `0.40` y `-0.05`, el ejemplo de `docs/specs/openapi.yaml:93-98` indica `cheaper`. Confirmar el umbral de `aligned` y el signo de `expensive`.
 - [ ] Política de avisos: ventana de 7 días, origen de `booking_reference` (no existe en `appointments`), cálculo de `days_before`, canal de notificación y quién registra `notified_at`. No enviar avisos automáticamente sin confirmación.
 - [x] Reglas de backfill: ejecutadas con las guardas de la sección 6; no se insertaron filas porque `price_changes` estaba vacía.

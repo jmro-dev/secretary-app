@@ -59,6 +59,8 @@ export const PriceAdjustmentPreviewTable = ({ preview, appliedByRow = {}, onAppl
                                             step={preview.roundingStep || preview.step || 500}
                                             className={styles.PriceAdjustmentModal__tableInput}
                                             value={appliedRaw ?? String(suggested)}
+                                            disabled={idx !== 0}
+                                            title={idx === 0 ? 'Manual override' : 'Only the first row can be overridden'}
                                             onChange={(e) => onAppliedPriceChange?.(rowKey, e.target.value)}
                                         />
                                     </td>

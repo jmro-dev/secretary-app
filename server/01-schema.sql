@@ -2933,11 +2933,13 @@ CREATE PROCEDURE `proc_apply_price_increase`(
     IN p_scope_institutions TINYINT(1),
     IN p_inflation_source VARCHAR(50),
     IN p_inflation_period VARCHAR(7),
-    IN p_user_id INT
+    IN p_user_id INT,
+    IN p_applied_price DECIMAL(10,2)
 )
     MODIFIES SQL DATA
 BEGIN
     DECLARE v_factor DECIMAL(12,6);
+    DECLARE v_override_row_id INT DEFAULT NULL;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -2989,8 +2991,34 @@ BEGIN
         SELECT p_batch_id, 'doctors', d.id, 'virtual_consultation_price', d.virtual_consultation_price,
                fn_round_price(d.virtual_consultation_price * v_factor, p_step),
                p_percent, p_step, p_inflation_source, p_inflation_period, p_user_id
-          FROM doctors d WHERE d.virtual_consultation_price > 0;
+           FROM doctors d WHERE d.virtual_consultation_price > 0;
+    END IF;
 
+    IF p_scope_institutions = 1 THEN
+        INSERT INTO price_changes (
+            batch_id, scope, target_id, field, old_value, new_value,
+            percent, rounding_step, inflation_source, inflation_period, user_id
+        )
+         SELECT p_batch_id, 'institutions', i.id, 'base_price', i.base_price,
+                fn_round_price(i.base_price * v_factor, p_step),
+                p_percent, p_step, p_inflation_source, p_inflation_period, p_user_id
+           FROM institutions i WHERE i.base_price > 0;
+    END IF;
+
+    IF p_applied_price IS NOT NULL THEN
+        SET v_override_row_id = (
+            SELECT id FROM price_changes
+             WHERE batch_id = p_batch_id
+             ORDER BY id ASC
+             LIMIT 1
+        );
+        UPDATE price_changes
+           SET new_value = p_applied_price,
+               status = 'accepted_with_adjustment'
+         WHERE id = v_override_row_id;
+    END IF;
+
+    IF p_scope_doctors = 1 THEN
         UPDATE doctors d
           JOIN price_changes pc
             ON pc.batch_id = p_batch_id
@@ -3033,15 +3061,6 @@ BEGIN
     END IF;
 
     IF p_scope_institutions = 1 THEN
-        INSERT INTO price_changes (
-            batch_id, scope, target_id, field, old_value, new_value,
-            percent, rounding_step, inflation_source, inflation_period, user_id
-        )
-        SELECT p_batch_id, 'institutions', i.id, 'base_price', i.base_price,
-               fn_round_price(i.base_price * v_factor, p_step),
-               p_percent, p_step, p_inflation_source, p_inflation_period, p_user_id
-          FROM institutions i WHERE i.base_price > 0;
-
         UPDATE institutions i
           JOIN price_changes pc
             ON pc.batch_id = p_batch_id
