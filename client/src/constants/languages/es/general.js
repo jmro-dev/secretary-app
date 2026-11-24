@@ -478,6 +478,8 @@ export const general = {
     paying_institution: "Institución Pagadora",
     phone_copied: "Teléfono copiado al portapapeles",
     phone_th: "Teléfono",
+    clinic_name_hint: "Nombre comercial o institucional del consultorio/clínica.",
+    clinic_name_label: "Nombre de la Clínica / Consultorio",
     physical_address_hint: "Calle, número, ciudad.",
     physical_address_label: "Dirección Física",
     placeholder_data_req: "Datos del paciente requeridos...",

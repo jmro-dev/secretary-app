@@ -214,7 +214,6 @@ export class AIService {
 
       return this.normalizeOutput(JSON.parse(data.response));
     } catch {
-      clearTimeout(timeout);
       return null;
     }
   }

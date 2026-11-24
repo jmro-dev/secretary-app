@@ -1,0 +1,423 @@
+openapi: 3.0.3
+info:
+  title: Price Adjustment API
+  version: 1.0.0
+  description: >-
+    Contract-first specification for the price-adjustment feature. These endpoints extend the
+    existing /finances/prices API without breaking its current consumers.
+servers:
+  - url: http://localhost:4010
+    description: Prism mock server for contract-first development and Hurl verification.
+tags:
+  - name: prices
+    description: Price preview, application, closing summaries and adjustment ledger.
+  - name: bookings
+    description: Booking price-variation notices.
+paths:
+  /finances/prices/preview:
+    get:
+      tags:
+        - prices
+      summary: Preview an inflation-based price adjustment
+      operationId: previewPriceAdjustment
+      responses:
+        '200':
+          description: Non-mutating adjustment suggestion.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdjustmentSuggestion'
+              example:
+                period: '2026-Q1'
+                basePrice: 70000
+                inflationFactor: 1.142857
+                suggestedPrice: 80000
+                effectiveFactor: 1.142857
+                roundingStep: 500
+  /finances/prices/apply:
+    post:
+      tags:
+        - prices
+      summary: Apply an approved price adjustment
+      operationId: applyPriceAdjustment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplyAdjustmentRequest'
+            example:
+              period: '2026-Q1'
+              basePrice: 70000
+              suggestedPrice: 80000
+              appliedPrice: 90000
+              roundingStep: 500
+              adjustmentReason: 'Alta demanda de especialista'
+              source: manual
+      responses:
+        '200':
+          description: Adjustment applied and reconciled against the suggestion.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppliedAdjustment'
+              example:
+                status: accepted_with_adjustment
+                suggestedPrice: 80000
+                appliedPrice: 90000
+                delta: 10000
+                deltaPct: 12.5
+                adjustmentReason: 'Alta demanda de especialista'
+                source: manual
+  /finances/prices/closing:
+    get:
+      tags:
+        - prices
+      summary: Summarize inflation versus applied prices for a closing year
+      operationId: getClosingSummary
+      parameters:
+        - name: year
+          in: query
+          required: true
+          description: Closing year to summarize.
+          schema:
+            type: integer
+            example: 2026
+      responses:
+        '200':
+          description: Closing summary for the requested year.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClosingSummary'
+              example:
+                year: 2026
+                inflationYoY: 0.45
+                appliedCumulative: 0.40
+                margin: -0.05
+                verdict: cheaper
+  /finances/prices/ledger:
+    get:
+      tags:
+        - prices
+      summary: List adjustment ledger entries for a closing year
+      operationId: listPriceAdjustmentLedger
+      parameters:
+        - name: year
+          in: query
+          required: true
+          description: Closing year whose ledger entries are returned.
+          schema:
+            type: integer
+            example: 2026
+      responses:
+        '200':
+          description: Ledger entries ordered by period.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LedgerEntry'
+              example:
+                - period: '2026-Q1'
+                  inflationFactor: 1.142857
+                  appliedFactor: 1.285714
+                  suggestedPrice: 80000
+                  appliedPrice: 90000
+                  delta: 10000
+                  deltaPct: 12.5
+                  adjustmentReason: 'Alta demanda de especialista'
+                  source: manual
+  /finances/bookings/due-price-notices:
+    get:
+      tags:
+        - bookings
+      summary: List bookings whose quoted price differs within the notice window
+      operationId: listDuePriceNotices
+      parameters:
+        - name: days
+          in: query
+          required: false
+          description: Notice window in days before the appointment.
+          schema:
+            type: integer
+            default: 7
+            example: 7
+      responses:
+        '200':
+          description: Bookings requiring a price-variation notice.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PriceVariationNotice'
+              example:
+                - bookingId: 'bkg-711'
+                  appointmentAt: '2026-12-15T10:30:00Z'
+                  quotedPrice: 70000
+                  currentPrice: 80000
+                  delta: 10000
+                  daysBefore: 7
+                  notifiedAt: null
+components:
+  schemas:
+    AdjustmentSuggestion:
+      type: object
+      required:
+        - period
+        - basePrice
+        - inflationFactor
+        - suggestedPrice
+        - effectiveFactor
+        - roundingStep
+      properties:
+        period:
+          type: string
+          example: '2026-Q1'
+        basePrice:
+          type: number
+          example: 70000
+        inflationFactor:
+          type: number
+          example: 1.142857
+        suggestedPrice:
+          type: number
+          example: 80000
+        effectiveFactor:
+          type: number
+          example: 1.142857
+        roundingStep:
+          type: number
+          example: 500
+      example:
+        period: '2026-Q1'
+        basePrice: 70000
+        inflationFactor: 1.142857
+        suggestedPrice: 80000
+        effectiveFactor: 1.142857
+        roundingStep: 500
+    ApplyAdjustmentRequest:
+      type: object
+      required:
+        - period
+        - basePrice
+        - suggestedPrice
+        - appliedPrice
+        - roundingStep
+        - adjustmentReason
+        - source
+      properties:
+        period:
+          type: string
+          example: '2026-Q1'
+        basePrice:
+          type: number
+          example: 70000
+        suggestedPrice:
+          type: number
+          example: 80000
+        appliedPrice:
+          type: number
+          example: 90000
+        roundingStep:
+          type: number
+          example: 500
+        adjustmentReason:
+          type: string
+          example: 'Alta demanda de especialista'
+        source:
+          type: string
+          enum:
+            - auto
+            - manual
+          example: manual
+      example:
+        period: '2026-Q1'
+        basePrice: 70000
+        suggestedPrice: 80000
+        appliedPrice: 90000
+        roundingStep: 500
+        adjustmentReason: 'Alta demanda de especialista'
+        source: manual
+    AppliedAdjustment:
+      type: object
+      required:
+        - status
+        - suggestedPrice
+        - appliedPrice
+        - delta
+        - deltaPct
+        - adjustmentReason
+        - source
+      properties:
+        status:
+          type: string
+          enum:
+            - accepted
+            - accepted_with_adjustment
+          example: accepted_with_adjustment
+        suggestedPrice:
+          type: number
+          example: 80000
+        appliedPrice:
+          type: number
+          example: 90000
+        delta:
+          type: number
+          example: 10000
+        deltaPct:
+          type: number
+          example: 12.5
+        adjustmentReason:
+          type: string
+          example: 'Alta demanda de especialista'
+        source:
+          type: string
+          enum:
+            - auto
+            - manual
+          example: manual
+      example:
+        status: accepted_with_adjustment
+        suggestedPrice: 80000
+        appliedPrice: 90000
+        delta: 10000
+        deltaPct: 12.5
+        adjustmentReason: 'Alta demanda de especialista'
+        source: manual
+    ClosingSummary:
+      type: object
+      required:
+        - year
+        - inflationYoY
+        - appliedCumulative
+        - margin
+        - verdict
+      properties:
+        year:
+          type: integer
+          example: 2026
+        inflationYoY:
+          type: number
+          example: 0.45
+        appliedCumulative:
+          type: number
+          example: 0.40
+        margin:
+          type: number
+          example: -0.05
+        verdict:
+          type: string
+          enum:
+            - cheaper
+            - expensive
+            - aligned
+          example: cheaper
+      example:
+        year: 2026
+        inflationYoY: 0.45
+        appliedCumulative: 0.40
+        margin: -0.05
+        verdict: cheaper
+    LedgerEntry:
+      type: object
+      required:
+        - period
+        - inflationFactor
+        - appliedFactor
+        - suggestedPrice
+        - appliedPrice
+        - delta
+        - deltaPct
+        - adjustmentReason
+        - source
+      properties:
+        period:
+          type: string
+          example: '2026-Q1'
+        inflationFactor:
+          type: number
+          description: >-
+            Per-period compound factor (1 + inflation rate / 100). ClosingSummary carries annual cumulative rates.
+          example: 1.142857
+        appliedFactor:
+          type: number
+          description: >-
+            Per-period compound factor of applied price over base price. ClosingSummary carries annual cumulative rates.
+          example: 1.285714
+        suggestedPrice:
+          type: number
+          example: 80000
+        appliedPrice:
+          type: number
+          example: 90000
+        delta:
+          type: number
+          example: 10000
+        deltaPct:
+          type: number
+          example: 12.5
+        adjustmentReason:
+          type: string
+          example: 'Alta demanda de especialista'
+        source:
+          type: string
+          enum:
+            - auto
+            - manual
+          example: manual
+      example:
+        period: '2026-Q1'
+        inflationFactor: 1.142857
+        appliedFactor: 1.285714
+        suggestedPrice: 80000
+        appliedPrice: 90000
+        delta: 10000
+        deltaPct: 12.5
+        adjustmentReason: 'Alta demanda de especialista'
+        source: manual
+    PriceVariationNotice:
+      type: object
+      required:
+        - bookingId
+        - appointmentAt
+        - quotedPrice
+        - currentPrice
+        - delta
+        - daysBefore
+        - notifiedAt
+      properties:
+        bookingId:
+          type: string
+          example: 'bkg-711'
+        appointmentAt:
+          type: string
+          format: date-time
+          example: '2026-12-15T10:30:00Z'
+        quotedPrice:
+          type: number
+          example: 70000
+        currentPrice:
+          type: number
+          example: 80000
+        delta:
+          type: number
+          example: 10000
+        daysBefore:
+          type: integer
+          example: 7
+        notifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+      example:
+        bookingId: 'bkg-711'
+        appointmentAt: '2026-12-15T10:30:00Z'
+        quotedPrice: 70000
+        currentPrice: 80000
+        delta: 10000
+        daysBefore: 7
+        notifiedAt: null
