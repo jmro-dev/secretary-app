@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     StyleSheet,
     Text,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useAuth } from '@/shared/context/AuthContext';
 import { Colors } from '@/shared/theme/colors';
+import { getEnvironmentOverride, setEnvironmentOverride, getApiUrl } from '@/shared/services/api';
 
 export const LoginForm: React.FC = () => {
     const { login } = useAuth();
@@ -19,6 +20,21 @@ export const LoginForm: React.FC = () => {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
+    const [envMode, setEnvMode] = useState<'dev' | 'prod' | 'auto'>('auto');
+    const [activeEndpoint, setActiveEndpoint] = useState<string>('');
+
+    useEffect(() => {
+        getEnvironmentOverride().then(setEnvMode);
+        getApiUrl().then(setActiveEndpoint);
+    }, []);
+
+    const toggleEnv = async () => {
+        const next = envMode === 'dev' ? 'prod' : 'dev';
+        await setEnvironmentOverride(next);
+        setEnvMode(next);
+        const url = await getApiUrl();
+        setActiveEndpoint(url);
+    };
 
     const handleLogin = async () => {
         setErrorMessage('');
@@ -88,6 +104,20 @@ export const LoginForm: React.FC = () => {
                         <Text style={styles.buttonText}>Ingresar</Text>
                     )}
                 </TouchableOpacity>
+
+                {__DEV__ && (
+                    <TouchableOpacity
+                        style={styles.envSelector}
+                        onPress={toggleEnv}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={styles.envBadge}>
+                            Entorno: <Text style={styles.envBadgeHighlight}>{activeEndpoint.includes('duckdns') ? 'PRODUCCIÓN (RPi)' : 'DESARROLLO (Local)'}</Text>
+                        </Text>
+                        <Text style={styles.envUrl} numberOfLines={1}>{activeEndpoint}</Text>
+                        <Text style={styles.envHint}>Toca para cambiar</Text>
+                    </TouchableOpacity>
+                )}
             </View>
         </KeyboardAvoidingView>
     );
@@ -169,5 +199,34 @@ const styles = StyleSheet.create({
         color: '#ffffff',
         fontSize: 16,
         fontWeight: '600',
+    },
+    envSelector: {
+        marginTop: 20,
+        padding: 10,
+        backgroundColor: Colors.background,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: Colors.border,
+        alignItems: 'center',
+    },
+    envBadge: {
+        fontSize: 12,
+        color: Colors.textSecondary,
+        fontWeight: '500',
+    },
+    envBadgeHighlight: {
+        fontWeight: 'bold',
+        color: Colors.primary,
+    },
+    envUrl: {
+        fontSize: 11,
+        color: Colors.textMuted,
+        marginTop: 2,
+    },
+    envHint: {
+        fontSize: 10,
+        color: Colors.textMuted,
+        marginTop: 4,
+        fontStyle: 'italic',
     },
 });

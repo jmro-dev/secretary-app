@@ -46,13 +46,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         });
 
         if (response.token) {
+            let docId = response.doctor_id || null;
+            if (!docId && response.role === 'doctor') {
+                // Si el backend no devolvio doctor_id, buscar su id en la lista de doctores
+                try {
+                    const doctorsRes = await apiFetch<any>('/users/doctors', {
+                        headers: { Authorization: `Bearer ${response.token}` }
+                    });
+                    const docList = doctorsRes?.data?.doctors || doctorsRes?.data || doctorsRes || [];
+                    const myDoc = Array.isArray(docList) ? docList.find((d: any) => d.user_id === response.user_id || d.user_id === response.id) : null;
+                    if (myDoc) docId = myDoc.id;
+                } catch (e) {
+                    console.warn('Could not resolve doctor_id fallback:', e);
+                }
+            }
+
             const userObj: User = response.user || {
                 id: response.user_id || response.id,
                 username: response.username,
                 role: response.role,
                 name: response.name,
-                doctor_id: response.doctor_id || (response.role === 'doctor' ? response.user_id : null),
-                profile_id: response.profile_id || response.user_id,
+                doctor_id: docId,
+                profile_id: docId || response.user_id,
             };
             await AsyncStorage.setItem('user_token', response.token);
             await AsyncStorage.setItem('user_info', JSON.stringify(userObj));
