@@ -40,6 +40,25 @@ describe('PriceAdjustmentService', () => {
             expect(result.months).toBe(3);
         });
 
+        it('treats repeated since query parameters as a single value', async () => {
+            axios.get.mockResolvedValueOnce({
+                data: {
+                    data: [
+                        ['2026-10-01', 12785.9321],
+                        ['2026-09-01', 12514.1508],
+                        ['2026-08-01', 12276.7660],
+                        ['2026-07-01', 12076.3937]
+                    ]
+                }
+            });
+
+            const result = await priceAdjustmentService.getInflation(['2026-08-01']);
+
+            expect(result.available).toBe(true);
+            expect(result.from).toBe('2026-08');
+            expect(result.months).toBe(2);
+        });
+
         it('uses in-memory cache on subsequent call with same since key', async () => {
             axios.get.mockResolvedValueOnce({
                 data: {

@@ -127,7 +127,11 @@ class PriceAdjustmentService {
      * If both fail, returns { available: false, reason } gracefully without throwing.
      */
     async getInflation(since) {
-        const cacheKey = since || 'default';
+        const requestedSince = Array.isArray(since) ? since[0] : since;
+        const normalizedSince = typeof requestedSince === 'string' && requestedSince.trim()
+            ? requestedSince.trim()
+            : undefined;
+        const cacheKey = normalizedSince || 'default';
         const cached = inflationCache.get(cacheKey);
         if (cached && (Date.now() - cached.timestamp < CACHE_TTL_MS)) {
             return cached.data;
@@ -146,8 +150,10 @@ class PriceAdjustmentService {
                 const latestIpc = Number(latestEntry[1]);
 
                 let targetEntry;
-                if (since) {
-                    const sinceDateStr = since.length === 7 ? `${since}-01` : since;
+                if (normalizedSince) {
+                    const sinceDateStr = normalizedSince.length === 7
+                        ? `${normalizedSince}-01`
+                        : normalizedSince;
                     // Find closest entry with date <= sinceDateStr, or oldest available
                     targetEntry = data.find(row => row[0] <= sinceDateStr) || data[data.length - 1];
                 } else {
@@ -190,8 +196,8 @@ class PriceAdjustmentService {
                     const latestDate = latestItem.fecha;
 
                     let filteredMonths;
-                    if (since) {
-                        const sinceMonth = since.substring(0, 7);
+                    if (normalizedSince) {
+                        const sinceMonth = normalizedSince.substring(0, 7);
                         filteredMonths = list.filter(item => item.fecha.substring(0, 7) >= sinceMonth);
                     } else {
                         filteredMonths = list.slice(-3); // Last 3 months

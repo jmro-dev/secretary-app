@@ -196,10 +196,16 @@ class FinanceController {
             if (percent === undefined || percent === null || isNaN(Number(percent))) {
                 return this.sendResponse(res, false, null, "Param 'percent' is required and must be a number", 400);
             }
+            const requestedScopes = Array.isArray(scope)
+                ? scope
+                : (typeof scope === 'string' ? scope.split(',') : []);
+            const normalizedScopes = requestedScopes
+                .map(item => String(item).trim())
+                .filter(Boolean);
             const preview = await priceAdjustmentService.previewIncrease({
                 percent: Number(percent),
                 step: step ? Number(step) : 500,
-                scope: scope ? (scope.includes(',') ? scope.split(',') : [scope]) : ['doctors', 'institutions']
+                scope: normalizedScopes.length ? normalizedScopes : ['doctors', 'institutions']
             });
             this.sendResponse(res, true, preview);
         } catch (err) {

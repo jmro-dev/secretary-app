@@ -118,6 +118,19 @@ describe('FinanceController - Price Adjustments (#711)', () => {
                 error: null
             });
         });
+
+        it('normalizes repeated query parameters for scope', async () => {
+            req.query = { percent: '10.5', step: '500', scope: ['doctors', 'institutions'] };
+            priceAdjustmentService.previewIncrease.mockResolvedValueOnce({ percent: 10.5, count: 0, items: [] });
+
+            await controller.previewPriceIncrease(req, res);
+
+            expect(priceAdjustmentService.previewIncrease).toHaveBeenCalledWith({
+                percent: 10.5,
+                step: 500,
+                scope: ['doctors', 'institutions']
+            });
+        });
     });
 
     describe('applyPriceIncrease', () => {
