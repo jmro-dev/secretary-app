@@ -9,7 +9,9 @@ export const ToolDefinitionSchema = z.object({
 export const GuardrailRuleSchema = z.object({
   terms: z.array(z.string().min(1).max(100)).max(50),
   reply: z.string().min(1).max(1000),
-  actionRequired: z.enum(['REPLY_ONLY', 'CREATE_PENDING_BOOKING', 'ESCALATE_HUMAN', 'CALL_TOOL']),
+  // `EXECUTE_ACTION` es la acción genérica. `CREATE_PENDING_BOOKING` se acepta
+  // por compatibilidad con configuraciones existentes (deprecado).
+  actionRequired: z.enum(['REPLY_ONLY', 'EXECUTE_ACTION', 'CREATE_PENDING_BOOKING', 'ESCALATE_HUMAN', 'CALL_TOOL']),
   intent: z.string().min(1).max(50).default('OTRO'),
   urgency: z.enum(['baja', 'media', 'alta']).default('baja')
 }).strict();

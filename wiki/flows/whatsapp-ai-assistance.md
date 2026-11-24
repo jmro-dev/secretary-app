@@ -59,7 +59,7 @@ WhatsApp Bridge (Go) ──► whatsappService.js (Sequential phone queue)
 
 1. **Human-in-the-Loop Booking**:
    - The AI **never confirms appointments directly**.
-   - Scheduling actions generate a `pending_bookings` record (`CREATE_PENDING_BOOKING`) awaiting manual verification by clinic receptionists.
+   - Scheduling actions generate a `pending_bookings` record (`EXECUTE_ACTION`; the legacy `CREATE_PENDING_BOOKING` value is still accepted for compatibility) awaiting manual verification by clinic receptionists.
 2. **Zero Automated Prescriptions**:
    - In accordance with medical governance, medical prescriptions cannot be authorized over WhatsApp chat. Requests are dispatched to the medical queue with a standard turnaround of up to 72 business hours.
 3. **Sequential Inbound Queue**:

@@ -3,6 +3,7 @@ import { TransactionModal } from '@/features/finances/components/modals/Transact
 import { CashBalancingModal } from '@/features/finances/components/modals/CashBalancingModal';
 import { EditTransactionModal } from '@/features/finances/components/modals/EditTransactionModal';
 import { PendingClosuresModal } from '@/features/finances/components/modals/PendingClosuresModal';
+import { PriceAdjustmentModal } from '@/features/finances/components/modals/PriceAdjustmentModal';
 
 /**
  * FinanceModalOrchestrator.
@@ -69,6 +70,14 @@ export const FinanceModalOrchestrator = ({ controller, MedicationInputComponent 
                 onCloseAll={handlers.handleCloseAllPending}
                 onFixDuplicates={handlers.handleFixDuplicates}
                 onResetDay={handlers.handleResetDay}
+                t={t}
+            />
+
+            <PriceAdjustmentModal
+                isOpen={controller.priceAdjustmentModalOpen}
+                onClose={() => handlers.setPriceAdjustmentModalOpen(false)}
+                onSuccess={handlers.onRefresh}
+                alert={controller.alert}
                 t={t}
             />
         </>

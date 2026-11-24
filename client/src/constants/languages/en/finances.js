@@ -54,5 +54,12 @@ export const finances = {
     select_doctor_for_balancing: "Select doctor for balancing:",
     match_system_amount: "Match system amount",
     quick_fill: "Fill with Theoretical Balance",
+
+    // Price Adjustments (#711)
+    adjust_tariffs: "Adjust Tariffs",
+    price_adjustment_title: "Inflation Price Adjustment",
+    price_adjustment_immutable_notice: "Individually agreed patient copays (override) and past transactions are immutable.",
+    loading_price_status: "Checking tariffs and CPI inflation status...",
+    apply_increase_button: "Confirm and Apply",
 };
 
