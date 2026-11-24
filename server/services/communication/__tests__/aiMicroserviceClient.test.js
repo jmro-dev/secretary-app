@@ -133,7 +133,7 @@ describe('aiMicroserviceClient - Delegation to edi3-ai-production', () => {
         expect(payload.businessContext.doctors[0].consultationPrice).toBe(500);
     });
 
-    it('creates pending booking when actionRequired is CREATE_PENDING_BOOKING', async () => {
+    it('creates pending booking when actionRequired is CREATE_PENDING_BOOKING (legacy compat)', async () => {
         axios.post.mockResolvedValueOnce({
             data: {
                 intent: 'SOLICITUD_TURNO',
@@ -169,6 +169,70 @@ describe('aiMicroserviceClient - Delegation to edi3-ai-production', () => {
             'Registramos tu solicitud de turno para Maria Cecilia Scheerle.',
             8563
         );
+    });
+
+    it('creates pending booking when actionRequired is the generic EXECUTE_ACTION', async () => {
+        axios.post.mockResolvedValueOnce({
+            data: {
+                intent: 'SOLICITUD_TURNO',
+                confidence: 0.97,
+                actionRequired: 'EXECUTE_ACTION',
+                entities: { doctorName: 'Scheerle' },
+                suggestedReply: 'Registramos tu solicitud de turno para Maria Cecilia Scheerle.',
+                ragSources: ['atencion_y_modalidades.md']
+            }
+        });
+
+        availabilitySearchService.getNextFreeSlot.mockResolvedValueOnce({
+            results: [{ date: '2026-11-17', slots: [{ time: '09:00' }] }]
+        });
+        pendingBookingRepository.create.mockResolvedValueOnce(78);
+
+        const res = await aiMicroserviceClient.processInboundMessage({
+            sender: '5492494523129@s.whatsapp.net',
+            message: 'Hola quiero un turno con Cecilia',
+            patientId: 8563,
+            phone: '5492494523129'
+        });
+
+        expect(res.intent).toBe('SOLICITUD_TURNO');
+        expect(pendingBookingRepository.create).toHaveBeenCalledWith(expect.objectContaining({
+            patient_id: 8563,
+            doctor_id: 10,
+            requested_slot_date: '2026-11-17',
+            requested_slot_time: '09:00'
+        }));
+        expect(whatsappService.sendMessageDirect).toHaveBeenCalledWith(
+            '5492494523129',
+            'Registramos tu solicitud de turno para Maria Cecilia Scheerle.',
+            8563
+        );
+    });
+
+    it('handles EXECUTE_ACTION without a resolvable doctor without confirming a booking', async () => {
+        doctorRepository.findAll.mockResolvedValueOnce([]);
+        appointmentRepository.findLastByPatientId.mockResolvedValueOnce(null);
+        doctorRepository.findFirst.mockResolvedValueOnce(null);
+        axios.post.mockResolvedValueOnce({
+            data: {
+                intent: 'SOLICITUD_TURNO',
+                confidence: 0.9,
+                actionRequired: 'EXECUTE_ACTION',
+                entities: {},
+                suggestedReply: 'ok'
+            }
+        });
+
+        const res = await aiMicroserviceClient.processInboundMessage({
+            sender: '5492494523129@s.whatsapp.net',
+            message: 'Quiero un turno',
+            patientId: 8563,
+            phone: '5492494523129'
+        });
+
+        expect(res).not.toBeNull();
+        expect(pendingBookingRepository.create).not.toHaveBeenCalled();
+        expect(Sentry.captureMessage).toHaveBeenCalledWith('PENDING_BOOKING_WITHOUT_DOCTOR', expect.any(Object));
     });
 
     it('silences the patient and logs when inference is unavailable', async () => {
