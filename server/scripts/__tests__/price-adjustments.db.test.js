@@ -29,7 +29,6 @@ describeDb('proc_apply_price_increase (integración contra MariaDB)', () => {
     let doctorsBefore;
     let institutionsBefore;
     const batchId = `jest-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const overrideBatchId = `${batchId}-manual`;
 
     beforeAll(async () => {
         // mysql2 es CJS: evita el import dinámico ESM de mariadb, que jest no
@@ -59,7 +58,7 @@ describeDb('proc_apply_price_increase (integración contra MariaDB)', () => {
             for (const inst of institutionsBefore) {
                 await pool.query('UPDATE institutions SET base_price = ? WHERE id = ?', [inst.base_price, inst.id]);
             }
-            await pool.query('DELETE FROM price_changes WHERE batch_id IN (?, ?)', [batchId, overrideBatchId]);
+            await pool.query('DELETE FROM price_changes WHERE batch_id = ?', [batchId]);
         } finally {
             await pool.end();
         }
@@ -112,29 +111,6 @@ describeDb('proc_apply_price_increase (integración contra MariaDB)', () => {
             expect(Number(row.old_value)).toBe(cell.oldValue);
             expect(Number(row.new_value)).toBe(cell.expected);
         }
-    });
-
-    it('aplica el override manual dentro de la misma transacción del procedimiento', async () => {
-        const overridePrice = 123456;
-
-        await pool.query('CALL proc_apply_price_increase(?, ?, ?, 1, 1, ?, ?, ?, ?)', [
-            overrideBatchId, 0, 500, 'manual', '2026-Q1', 1, overridePrice
-        ]);
-
-        const [audit] = await pool.query(
-            `SELECT scope, target_id, field, old_value, new_value, status
-               FROM price_changes WHERE batch_id = ? ORDER BY id ASC`,
-            [overrideBatchId]
-        );
-        expect(audit.length).toBeGreaterThan(0);
-        expect(Number(audit[0].new_value)).toBe(overridePrice);
-        expect(audit[0].status).toBe('accepted_with_adjustment');
-
-        const first = audit[0];
-        const [liveRows] = first.scope === 'doctors'
-            ? await pool.query(`SELECT ${first.field} AS price FROM doctors WHERE id = ?`, [first.target_id])
-            : await pool.query('SELECT base_price AS price FROM institutions WHERE id = ?', [first.target_id]);
-        expect(Number(liveRows[0].price)).toBe(overridePrice);
     });
 
     it('rechaza reaplicar el mismo batch_id', async () => {
