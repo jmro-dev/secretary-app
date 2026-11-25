@@ -1,0 +1,21 @@
+# Raspberry Pi override for the v2 development stack.
+# The legacy database stays on proxy-network; app credentials come from .env.
+services:
+  db:
+    profiles:
+      - standalone-db
+
+  server:
+    environment:
+      DB_HOST: secretary-legacy-db
+      DB_NAME: clinical_management
+      ENABLE_BACKGROUND_JOBS: "false"
+    networks:
+      - secretary_net
+      - legacy-db-network
+    depends_on: !reset []
+
+networks:
+  legacy-db-network:
+    external: true
+    name: proxy-network
