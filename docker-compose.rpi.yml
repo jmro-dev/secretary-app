@@ -1,0 +1,16 @@
+# Raspberry Pi deployment override for the development (v2) stack.
+# V2 uses the legacy production database so staff can use the real accounts.
+services:
+  server:
+    environment:
+      DB_HOST: legacy-db
+      DB_USER: root
+      DB_NAME: clinical_management
+      ENABLE_BACKGROUND_JOBS: "false"
+    networks:
+      - legacy-db-network
+
+networks:
+  legacy-db-network:
+    name: proxy-network
+    external: true

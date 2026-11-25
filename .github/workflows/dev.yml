@@ -86,15 +86,16 @@ jobs:
             git checkout development
             git pull origin development
 
-            # Usar docker-compose de desarrollo (no production)
+            # Usar desarrollo y el override específico de Raspberry Pi:
+            # el backend v2 conecta a la base compartida de legacy.
             # Detener contenedores actuales
-            docker compose -f docker-compose.yml down
+            docker compose -f docker-compose.yml -f docker-compose.rpi.yml down
 
             # Pull de las nuevas imágenes taggeadas como dev
-            docker compose -f docker-compose.yml pull
+            docker compose -f docker-compose.yml -f docker-compose.rpi.yml pull
 
             # Levantar contenedores de desarrollo
-            docker compose -f docker-compose.yml up -d
+            docker compose -f docker-compose.yml -f docker-compose.rpi.yml up -d
 
             # Limpiar contenedores detenidos y imágenes no usadas
             docker container prune -af
