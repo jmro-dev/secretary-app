@@ -23,19 +23,15 @@ jobs:
           - name: server
             context: ./server
             file: ./server/Dockerfile.prod
-            image: ghcr.io/jmrodev/secretary-app-server
           - name: client
             context: ./client
             file: ./client/Dockerfile.prod
-            image: ghcr.io/jmrodev/secretary-app-client
           - name: ai-service
             context: ./edi3-ai-production
             file: ./edi3-ai-production/Dockerfile
-            image: ghcr.io/jmrodev/secretary-app-ai-service
           - name: whatsapp-bridge
             context: ./whatsapp-bridge-go
             file: ./whatsapp-bridge-go/Dockerfile
-            image: ghcr.io/jmrodev/secretary-app-whatsapp-bridge
 
     steps:
       - name: Checkout repository
@@ -62,8 +58,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ matrix.image }}:latest
-            ${{ matrix.image }}:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}-${{ matrix.name }}:latest
+            ${{ env.IMAGE_PREFIX }}-${{ matrix.name }}:${{ github.sha }}
 
   deploy:
     name: Deploy via SSH
