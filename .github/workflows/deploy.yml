@@ -24,10 +24,11 @@ jobs:
             context: ./server
             file: ./server/Dockerfile.prod
             image: ghcr.io/jmrodev/secretary-app-server
-          - name: client
-            context: ./client
-            file: ./client/Dockerfile.prod
-            image: ghcr.io/jmrodev/secretary-app-client
+# Disabled client build temporarily due to CI failures
+#          - name: client
+#            context: ./client
+#            file: ./client/Dockerfile.prod
+#            image: ghcr.io/jmrodev/secretary-app-client
           - name: ai-service
             context: ./edi3-ai-production
             file: ./edi3-ai-production/Dockerfile
@@ -83,10 +84,10 @@ jobs:
             git pull origin main
             
             # Descargar únicamente las nuevas imágenes compiladas desde GHCR
-            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml -f docker-compose.prod.rpi.yml pull
             
             # Levantar los contenedores de producción sin recompilar
-            docker compose -f docker-compose.prod.yml up -d
+            docker compose -f docker-compose.prod.yml -f docker-compose.prod.rpi.yml up -d
             
             # Limpiar imágenes huérfanas/antiguas para liberar espacio en la RPi
             docker image prune -af
