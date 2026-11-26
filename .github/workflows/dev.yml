@@ -136,12 +136,16 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
+            set -euo pipefail
             cd ${{ secrets.DEPLOY_PATH }}
 
-            # Actualizar código fuente
+            # Preservar cambios locales antes de actualizar el checkout de despliegue.
             git fetch origin
+            if [ -n "$(git status --porcelain)" ]; then
+              git stash push --include-untracked -m "pre-deploy ${{ github.sha }}"
+            fi
             git checkout development
-            git pull origin development
+            git pull --ff-only origin development
 
             # Usar desarrollo y su configuración específica de Raspberry Pi.
             # Validar configuración y conectividad antes de interrumpir el backend activo.
@@ -171,9 +175,5 @@ jobs:
               sleep 2
             done
             echo "✅ Healthcheck HTTP del backend v2 correcto"
-
-            # Limpiar contenedores detenidos y imágenes no usadas
-            docker container prune -af
-            docker image prune -af
 
             echo "✅ Deploy de desarrollo completado en la RPi"
