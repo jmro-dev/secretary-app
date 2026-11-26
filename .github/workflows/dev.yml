@@ -86,15 +86,34 @@ jobs:
             git checkout development
             git pull origin development
 
-            # Usar docker-compose de desarrollo (no production)
+            # Usar desarrollo y su configuración específica de Raspberry Pi.
+            # Validar configuración y conectividad antes de interrumpir el backend activo.
+            docker compose -f docker-compose.yml -f docker-compose.rpi.yml config --quiet
+            docker inspect secretary-legacy-db >/dev/null
+            docker network inspect proxy-network >/dev/null
+            docker compose -f docker-compose.yml -f docker-compose.rpi.yml run --rm --no-deps --entrypoint node server -e 'const mariadb = require("mariadb"); (async () => { if (process.env.DB_HOST !== "secretary-legacy-db" || process.env.DB_NAME !== "clinical_management") throw new Error("Unexpected database endpoint"); const conn = await mariadb.createConnection({ host: process.env.DB_HOST, user: process.env.DB_USER, password: process.env.DB_PASSWORD, database: process.env.DB_NAME, port: process.env.DB_PORT || 3306 }); const rows = await conn.query("SELECT DATABASE() AS db, @@hostname AS host"); console.log(`Read-only DB check passed: ${rows[0].db} on ${rows[0].host}`); await conn.end(); })().catch((error) => { console.error(`Read-only DB check failed (${error.code || "unknown"}): ${error.message}`); process.exit(1); });'
+
             # Detener contenedores actuales
-            docker compose -f docker-compose.yml down
+            docker compose -f docker-compose.yml -f docker-compose.rpi.yml down
 
             # Pull de las nuevas imágenes taggeadas como dev
-            docker compose -f docker-compose.yml pull
+            docker compose -f docker-compose.yml -f docker-compose.rpi.yml pull
 
             # Levantar contenedores de desarrollo
-            docker compose -f docker-compose.yml up -d
+            docker compose -f docker-compose.yml -f docker-compose.rpi.yml up -d
+
+            # Confirmar que el backend responda antes de marcar el despliegue como exitoso.
+            attempt=0
+            until curl --fail --silent http://127.0.0.1:5000/api/health >/dev/null; do
+              attempt=$((attempt + 1))
+              if [ "$attempt" -ge 30 ]; then
+                docker compose -f docker-compose.yml -f docker-compose.rpi.yml logs --tail=100 server
+                echo "❌ El backend v2 no superó el healthcheck HTTP"
+                exit 1
+              fi
+              sleep 2
+            done
+            echo "✅ Healthcheck HTTP del backend v2 correcto"
 
             # Limpiar contenedores detenidos y imágenes no usadas
             docker container prune -af
