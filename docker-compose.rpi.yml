@@ -6,6 +6,7 @@ services:
       - standalone-db
 
   server:
+    image: ghcr.io/jmro-dev/secretary-app-server:dev-latest
     environment:
       DB_HOST: secretary-legacy-db
       DB_NAME: clinical_management
@@ -14,6 +15,15 @@ services:
       - secretary_net
       - legacy-db-network
     depends_on: !reset []
+
+  ai-service:
+    image: ghcr.io/jmro-dev/secretary-app-ai-service:dev-latest
+
+  client:
+    image: ghcr.io/jmro-dev/secretary-app-client:dev-latest
+
+  whatsapp-bridge:
+    image: ghcr.io/jmro-dev/secretary-app-whatsapp-bridge:dev-latest
 
 networks:
   legacy-db-network:
