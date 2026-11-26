@@ -30,6 +30,7 @@ Toda la documentación detallada del proyecto se encuentra organizada dentro de 
 
 *   [**Arquitectura y Estándares de Código**](docs/ARQUITECTURA.md): Reglas de oro del repositorio, Atomic Design, CSS Modules, BEM y patrones del backend.
 *   [**Guía de Configuración General**](docs/GUIA_CONFIGURACION_GENERAL.md): Pasos para la instalación inicial, variables de entorno (.env) y comandos de ejecución.
+*   [**Despliegues en Raspberry Pi**](docs/DESPLIEGUE_RPI.md): Ramas, despliegue Docker mediante GitHub Actions y estado de las bases de datos.
 *   [**App Móvil (Expo & React Native)**](mobile/README.md): Arquitectura Feature-Driven, ruteo con Expo Router y puesta en marcha de la app móvil.
 
 ---

@@ -6,14 +6,14 @@ sources:
   - server/services/communication/aiMicroserviceClient.js
   - server/services/communication/aiConfigService.js
   - server/services/communication/whatsappService.js
-synced: 658684f5
-sources_key: 2158446cae41
+  - server/repositories/system/clinicKnowledgeRepository.js
+synced: 41f85285
+sources_key: 0e7366f0168e
 related:
   - ../architecture.md
   - ./appointment-booking.md
   - ../components/whatsapp-bridge.md
-generated: { by: antigravity/gemini-flash, at: 2026-11-16T08:33:00Z }
-verified: { by: antigravity/gemini-flash, at: 2026-11-16T10:35:00Z }
+generated: { by: codex/gpt-6, at: 2026-11-25T16:16:00Z }
 ---
 
 # WhatsApp AI Assistance Flow
@@ -24,9 +24,9 @@ Secretary App delegates clinical WhatsApp triage and conversational intelligence
 
 1. **Relational State Ownership**:
    - `secretary-app` owns the database (MariaDB/MySQL).
-   - The AI sidecar is stateless; `aiMicroserviceClient.js` injects real-time `systemConfig`, `businessContext`, and conversation history on every request ([server/services/communication/aiMicroserviceClient.js:235-245](../../server/services/communication/aiMicroserviceClient.js#L235-L245)).
+   - The AI sidecar is stateless; `aiMicroserviceClient.js` injects real-time `systemConfig`, `businessContext`, and conversation history on every request ([server/services/communication/aiMicroserviceClient.js:126-150](../../server/services/communication/aiMicroserviceClient.js#L126-L150)).
 2. **Dynamic Configuration Cache**:
-   - `aiConfigService.js` retrieves `system_settings` and active `clinic_knowledge_documents`, caching the compiled context for 60 seconds ([server/services/communication/aiConfigService.js:130-145](../../server/services/communication/aiConfigService.js#L130-L145)).
+   - `aiConfigService.js` retrieves `system_settings` and active `clinic_knowledge_documents`, caching the compiled context for 60 seconds ([server/services/communication/aiConfigService.js:4](../../server/services/communication/aiConfigService.js#L4), [server/services/communication/aiConfigService.js:126-153](../../server/services/communication/aiConfigService.js#L126-L153), [clinicKnowledgeRepository.js:11-19](../../server/repositories/system/clinicKnowledgeRepository.js#L11)).
 
 ## Execution Sequence
 

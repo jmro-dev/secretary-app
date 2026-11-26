@@ -71,3 +71,7 @@ pnpm --filter server test
 pnpm lint
 ```
 *(Corre ESLint, Stylelint, Oxlint y React Doctor en paralelo).*
+
+## 5. Despliegue en Raspberry Pi
+
+El mapa de ramas, los workflows automáticos y la separación de bases de datos están documentados en [Despliegue en Raspberry Pi](./DESPLIEGUE_RPI.md). En particular, el stack de `main` usa actualmente su propia MariaDB; no comparte todavía la base de legacy.

@@ -18,6 +18,8 @@ okf_version: "0.2"
 
 - [Appointment Booking Flow](flows/appointment-booking.md): End-to-end appointment creation, slot concurrency validation, and transaction creation.
 - [Medical Service Pricing Flow](flows/price-calculation.md): Pricing resolution through doctor tariffs, institution coverage, and patient copays.
+- [Quarterly Price Adjustment Flow](flows/price-adjustments.md): Human-reviewed inflation adjustments to doctor and institution tariffs, with batch audit and historical ledger.
+- [Raspberry Pi Build and Deployment Flow](flows/rpi-deployment.md): GitHub Actions build and deploy the main production and development Docker stacks on the Raspberry Pi.
 - [WhatsApp AI Assistance Flow](flows/whatsapp-ai-assistance.md): Inbound WhatsApp AI handling, dynamic context enrichment, sidecar coordination, and tool execution.
 
 ## Concepts

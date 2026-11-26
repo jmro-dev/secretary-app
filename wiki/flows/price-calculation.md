@@ -5,14 +5,14 @@ responsibility: Pricing resolution through doctor tariffs, institution coverage,
 sources:
   - server/01-schema.sql
   - server/utils/finance/priceCalculator.js
-synced: 48185ad7
-sources_key: 9b687a0a805b
+synced: 41f85285
+sources_key: 2e94a887ca2c
 related:
   - ../architecture.md
   - ./appointment-booking.md
   - ../decisions/db-procedures-for-financial-invariants.md
-generated: { by: antigravity/gemini-flash, at: 2026-10-27T05:07:00Z }
-verified: { by: antigravity/gemini-flash, at: 2026-11-16T08:33:00Z }
+  - ./price-adjustments.md
+generated: { by: codex/gpt-6, at: 2026-11-25T16:16:00Z }
 ---
 
 # Medical Service Pricing Flow
@@ -34,3 +34,5 @@ The algorithm resolves the fee using three tiers of configuration:
 ## Node.js Invocation
 
 The Node.js backend delegates price calculations to the stored function through `priceCalculator.calculatePrice` ([server/utils/finance/priceCalculator.js:10-15](../../server/utils/finance/priceCalculator.js#L10-L15)), ensuring backend services do not re-implement mathematical rounding or tariff rules in JavaScript.
+
+Inflation-based tariff changes follow a separate process from appointment price resolution; see [Quarterly Price Adjustment Flow](./price-adjustments.md).

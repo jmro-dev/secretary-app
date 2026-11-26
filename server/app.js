@@ -42,6 +42,7 @@ const globalLimiter = rateLimit({
 require('./listeners/appointmentListeners');
 
 const { initScheduler } = require('./utils/system/scheduler');
+const backgroundJobsEnabled = process.env.ENABLE_BACKGROUND_JOBS !== 'false';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -52,8 +53,12 @@ app.use(globalLimiter);
 // Professional HTTP Logging
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
-// Initialize Scheduler
-initScheduler();
+// Only one backend should run scheduled work when versions share a database.
+if (backgroundJobsEnabled) {
+    initScheduler();
+} else {
+    logger.info('Background jobs disabled by ENABLE_BACKGROUND_JOBS=false');
+}
 
 const PORT = process.env.PORT || 5000;
 
@@ -163,9 +168,11 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
         conn.release();
 
 
-        // Start Google Sync Worker
-        const { startSyncWorker } = require('./services/integrations/googleSyncService');
-        startSyncWorker();
+        // Only one backend should process synchronization jobs for a shared database.
+        if (backgroundJobsEnabled) {
+            const { startSyncWorker } = require('./services/integrations/googleSyncService');
+            startSyncWorker();
+        }
 
         // AI Microservice Health Check (OpenAPI: GET /health)
         const { checkHealth } = require('./services/communication/aiMicroserviceClient');

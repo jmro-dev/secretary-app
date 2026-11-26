@@ -4,13 +4,13 @@ type: concept
 responsibility: Rules distinguishing pending appointment transactions from active patient debt.
 sources:
   - server/01-schema.sql
-synced: 48185ad7
-sources_key: af6461165445
+synced: 41f85285
+sources_key: 4d2cee7844aa
 related:
   - ../architecture.md
   - ../flows/appointment-booking.md
 generated: { by: antigravity/gemini-flash, at: 2026-10-27T05:07:00Z }
-verified: { by: antigravity/gemini-flash, at: 2026-11-16T08:33:00Z }
+verified: { by: codex/gpt-6, at: 2026-11-25T16:16:00Z }
 ---
 
 # Debt Accrual and Lifecycle

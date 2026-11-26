@@ -43,4 +43,5 @@ Secretary App is a medical office and clinical management platform designed to c
 - **Tariffs and Pricing**: Centralized in the database engine, detailed in [flows/price-calculation.md](./flows/price-calculation.md).
 - **Financial Balances & Debt**: Managed according to [concepts/debt-lifecycle.md](./concepts/debt-lifecycle.md).
 - **WhatsApp AI Sidecar**: Delegated clinical triage and tool calling, documented in [flows/whatsapp-ai-assistance.md](./flows/whatsapp-ai-assistance.md).
+- **Raspberry Pi Deployments**: Main and development image build/deploy paths, documented in [flows/rpi-deployment.md](./flows/rpi-deployment.md).
 - **Database Encapsulation**: Rationale documented in [decisions/db-procedures-for-financial-invariants.md](./decisions/db-procedures-for-financial-invariants.md).
