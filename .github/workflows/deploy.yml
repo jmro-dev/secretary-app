@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
@@ -23,15 +24,20 @@ jobs:
           - name: server
             context: ./server
             file: ./server/Dockerfile.prod
-          - name: client
-            context: ./client
-            file: ./client/Dockerfile.prod
+            image: ghcr.io/jmrodev/secretary-app-server
+# Disabled client build temporarily due to CI failures
+#          - name: client
+#            context: ./client
+#            file: ./client/Dockerfile.prod
+#            image: ghcr.io/jmrodev/secretary-app-client
           - name: ai-service
             context: ./edi3-ai-production
             file: ./edi3-ai-production/Dockerfile
+            image: ghcr.io/jmrodev/secretary-app-ai-service
           - name: whatsapp-bridge
             context: ./whatsapp-bridge-go
             file: ./whatsapp-bridge-go/Dockerfile
+            image: ghcr.io/jmrodev/secretary-app-whatsapp-bridge
 
     steps:
       - name: Checkout repository
@@ -58,8 +64,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ env.IMAGE_PREFIX }}-${{ matrix.name }}:latest
-            ${{ env.IMAGE_PREFIX }}-${{ matrix.name }}:${{ github.sha }}
+            ${{ matrix.image }}:latest
+            ${{ matrix.image }}:${{ github.sha }}
 
   deploy:
     name: Deploy via SSH
@@ -79,10 +85,10 @@ jobs:
             git pull origin main
             
             # Descargar únicamente las nuevas imágenes compiladas desde GHCR
-            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml -f docker-compose.prod.rpi.yml pull
             
             # Levantar los contenedores de producción sin recompilar
-            docker compose -f docker-compose.prod.yml up -d
+            docker compose -f docker-compose.prod.yml -f docker-compose.prod.rpi.yml up -d
             
             # Limpiar imágenes huérfanas/antiguas para liberar espacio en la RPi
             docker image prune -af
