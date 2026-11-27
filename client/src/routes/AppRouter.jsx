@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 
 // Layout & Guards
+import { AppShell } from '@/components/templates/AppShell';
 import { ProtectedRoute } from '@/components/templates/ProtectedRoute';
 import { RoleGuard } from '@/components/auth/RoleGuard';
 import { Loading } from '@/components/atoms/Loading';
@@ -57,6 +58,9 @@ export const AppRouter = () => {
 
             {/* Protected Dashboard Routes (Layout) */}
             <Route element={<ProtectedRoute />}>
+                {/* Persistent app chrome: Navbar + pending approvals live here so
+                    navigation never remounts them. */}
+                <Route element={<AppShell />}>
                 <Route path="/dashboard" element={
                     <RoleGuard allowedRoles={['secretary', 'doctor']}>
                         <DashboardPage />
@@ -134,6 +138,7 @@ export const AppRouter = () => {
                         <OutreachPage />
                     </RoleGuard>
                 } />
+                </Route>
             </Route>
 
 
