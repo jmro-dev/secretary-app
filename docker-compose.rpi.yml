@@ -1,16 +1,31 @@
-# Raspberry Pi deployment override for the development (v2) stack.
-# V2 uses the legacy production database so staff can use the real accounts.
+# Raspberry Pi override for the v2 development stack.
+# The legacy database stays on proxy-network; app credentials come from .env.
 services:
+  db:
+    profiles:
+      - standalone-db
+
   server:
+    image: ghcr.io/jmro-dev/secretary-app-server:dev-latest
     environment:
-      DB_HOST: legacy-db
-      DB_USER: root
+      DB_HOST: secretary-legacy-db
       DB_NAME: clinical_management
       ENABLE_BACKGROUND_JOBS: "false"
     networks:
+      - secretary_net
       - legacy-db-network
+    depends_on: !reset []
+
+  ai-service:
+    image: ghcr.io/jmro-dev/secretary-app-ai-service:dev-latest
+
+  client:
+    image: ghcr.io/jmro-dev/secretary-app-client:dev-latest
+
+  whatsapp-bridge:
+    image: ghcr.io/jmro-dev/secretary-app-whatsapp-bridge:dev-latest
 
 networks:
   legacy-db-network:
-    name: proxy-network
     external: true
+    name: proxy-network

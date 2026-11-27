@@ -25,7 +25,7 @@ services:
       retries: 10
 
   server-prod:
-    image: ${SERVER_IMAGE:-ghcr.io/jmrodev/secretary-app-server:latest}
+    image: ${SERVER_IMAGE:-ghcr.io/jmro-dev/secretary-app-server:latest}
     build:
       context: ./server
       dockerfile: Dockerfile.prod
@@ -70,7 +70,7 @@ services:
       retries: 3
 
   ai-service-prod:
-    image: ${AI_SERVICE_IMAGE:-ghcr.io/jmrodev/secretary-app-ai-service:latest}
+    image: ${AI_SERVICE_IMAGE:-ghcr.io/jmro-dev/secretary-app-ai-service:latest}
     build:
       context: ./edi3-ai-production
       dockerfile: Dockerfile
@@ -99,7 +99,7 @@ services:
       retries: 3
 
   whatsapp-bridge:
-    image: ${WHATSAPP_BRIDGE_IMAGE:-ghcr.io/jmrodev/secretary-app-whatsapp-bridge:latest}
+    image: ${WHATSAPP_BRIDGE_IMAGE:-ghcr.io/jmro-dev/secretary-app-whatsapp-bridge:latest}
     build: ./whatsapp-bridge-go
     restart: always
     container_name: secretary-whatsapp-bridge
@@ -123,7 +123,7 @@ services:
       start_period: 10s
 
   client-prod:
-    image: ${CLIENT_IMAGE:-ghcr.io/jmrodev/secretary-app-client:latest}
+    image: ${CLIENT_IMAGE:-ghcr.io/jmro-dev/secretary-app-client:latest}
     build:
       context: ./client
       dockerfile: Dockerfile.prod

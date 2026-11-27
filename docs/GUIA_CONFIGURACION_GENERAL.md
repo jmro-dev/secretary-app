@@ -71,3 +71,7 @@ pnpm --filter server test
 pnpm lint
 ```
 *(Corre ESLint, Stylelint, Oxlint y React Doctor en paralelo).*
+
+## Despliegue en Raspberry Pi
+
+La configuración del stack v2 en Raspberry Pi y su conexión a la base legacy se describe en [Despliegue en Raspberry Pi](./DESPLIEGUE_RPI.md).
