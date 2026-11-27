@@ -10,6 +10,9 @@ vi.mock('@/hooks/usePermissions', () => ({
 vi.mock('@/components/templates/ProtectedRoute', () => ({
     ProtectedRoute: () => <Outlet />
 }));
+vi.mock('@/components/templates/AppShell', () => ({
+    AppShell: () => <Outlet />
+}));
 vi.mock('@/features/config/SystemConfigPage', () => ({
     SystemConfigPage: () => <div>SYSTEM_CONFIG_PAGE</div>
 }));

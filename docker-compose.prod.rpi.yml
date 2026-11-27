@@ -1,0 +1,15 @@
+# Production v2 shares the legacy MariaDB on the existing proxy network.
+services:
+  db-prod:
+    profiles:
+      - standalone-db
+
+  server-prod:
+    environment:
+      DB_HOST: secretary-legacy-db
+      DB_USER: root
+      DB_NAME: clinical_management
+      ENABLE_BACKGROUND_JOBS: "false"
+    env_file:
+      - .env.production
+    depends_on: !reset []

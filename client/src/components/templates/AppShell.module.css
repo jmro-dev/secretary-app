@@ -1,0 +1,35 @@
+.AppShell__appLayout {
+    /* --- Local Component Tokens --- */
+    --layout-bg: var(--background-bg);
+
+    /* ------------------------------ */
+
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+    background-color: var(--layout-bg);
+    color: var(--text-main);
+    position: relative;
+}
+
+/* --- ECC-Pattern: Z-Index & Layout Management --- */
+
+/* The Navbar MUST have a higher stacking context than the main content */
+.AppShell__appLayout > header {
+    z-index: 1000; /* Higher than content */
+    position: sticky;
+    top: 0;
+}
+
+.AppShell__main {
+    z-index: 10; /* Lower than header */
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    overflow: auto;
+    min-height: 0;
+}

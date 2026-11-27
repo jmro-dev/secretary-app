@@ -17,10 +17,6 @@ vi.mock('@/features/auth/AuthContext', () => ({
     useAuth: mockUseAuth
 }));
 
-vi.mock('@/features/layout/components/Navbar', () => ({
-    Navbar: () => <nav>Navbar</nav>
-}));
-
 vi.mock('@/components/ui/PageHeader', () => ({
     PageHeader: () => <header>PageHeader</header>
 }));
@@ -29,12 +25,12 @@ vi.mock('@/features/doctors/components/ui/DoctorSelector', () => ({
     DoctorSelector: () => null
 }));
 
-const renderLayout = () => render(
+const renderLayout = (props = {}) => render(
     <MemoryRouter>
         <MessageProvider>
             <LanguageProvider>
                 <SearchProvider>
-                    <MainLayout>
+                    <MainLayout {...props}>
                         <p>child content</p>
                     </MainLayout>
                 </SearchProvider>
@@ -44,29 +40,25 @@ const renderLayout = () => render(
 );
 
 describe('MainLayout', () => {
-    it('renders navbar and children correctly without auto-booking polling banner', () => {
+    it('renders children without owning the persistent app chrome', () => {
         mockUseAuth.mockReturnValue({ user: { role: 'secretary', user_id: 1 } });
         renderLayout();
 
-        expect(screen.getByText('Navbar')).toBeInTheDocument();
         expect(screen.getByText('child content')).toBeInTheDocument();
+        // Navbar/pending approvals belong to AppShell at the router level.
+        expect(screen.queryByText('Navbar')).not.toBeInTheDocument();
+    });
+
+    it('renders the page header only when a title is provided', () => {
+        mockUseAuth.mockReturnValue({ user: { role: 'secretary', user_id: 1 } });
+        renderLayout({ title: 'Turnos' });
+
+        expect(screen.getByText('PageHeader')).toBeInTheDocument();
     });
 
     it('applies preset contained modifier when specified', () => {
         mockUseAuth.mockReturnValue({ user: { role: 'secretary', user_id: 1 } });
-        const { container } = render(
-            <MemoryRouter>
-                <MessageProvider>
-                    <LanguageProvider>
-                        <SearchProvider>
-                            <MainLayout preset="contained">
-                                <p>contained content</p>
-                            </MainLayout>
-                        </SearchProvider>
-                    </LanguageProvider>
-                </MessageProvider>
-            </MemoryRouter>
-        );
+        const { container } = renderLayout({ preset: 'contained' });
 
         const pageShell = container.querySelector('p')?.parentElement;
         expect(pageShell?.className).toContain('MainLayout__pageShell--contained');
